@@ -1,4 +1,4 @@
-# main.py — entry point
+# main.py
 import tkinter as tk
 from database import initialize_db
 from ui import HabitTrackerApp
@@ -6,7 +6,7 @@ from ui import HabitTrackerApp
 def main():
     initialize_db()
     root = tk.Tk()
-    app = HabitTrackerApp(root)
+    HabitTrackerApp(root)
     root.mainloop()
 
 if __name__ == "__main__":

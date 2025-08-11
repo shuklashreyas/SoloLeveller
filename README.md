@@ -14,6 +14,12 @@ This self-development tool gamifies personal growth by treating life skills as v
 - **Tkinter** - GUI framework for desktop interface  
 - **SQLite** - Local database for personal data storage
 
+
+## Screenshots (Work in Progress)
+![Alt text](sc1.png)
+![Alt text](sc2.png)
+![Alt text](sc3.png)
+
 ## ⚔️ The Attribute System
 
 ### 7 Positive Attributes (0-99 Scale)
