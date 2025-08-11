@@ -1,0 +1,19 @@
+{
+  "from_file": "/mnt/data/bite-club.hex",
+  "picked": {
+    "BG": "#74AEFF",
+    "CARD": "#C355DA",
+    "PRIMARY": "#050002",
+    "ACCENT": "#171237",
+    "TEXT": "#050002"
+  },
+  "all_colors": [
+    "#050002",
+    "#171237",
+    "#31144F",
+    "#3E207B",
+    "#84266E",
+    "#C355DA",
+    "#74AEFF"
+  ]
+}
