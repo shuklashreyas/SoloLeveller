@@ -93,15 +93,6 @@ This self-development tool gamifies personal growth by treating life skills as v
 - **Starting Floor**: Minimum 35 for all attributes
 - **Difficulty Curve**: Exponentially harder to reach higher levels
 
-### Ranking Tiers
-Progressive ranking system similar to competitive games:
-- **Bronze** (35-45)
-- **Silver** (46-55) 
-- **Gold** (56-65)
-- **Platinum** (66-75)
-- **Diamond** (76-85)
-- **Master** (86-95)
-- **Grandmaster** (96-99)
 
 ## ⚡ Key Features
 
@@ -133,6 +124,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
+if you want to remove database to reset stats : rm habit_tracker.db
 
 ## 🎯 Goals & Philosophy
 
@@ -146,6 +138,3 @@ This is a personal development tool designed for individual use. However, sugges
 
 This project is intended for personal use and self-development.
 
----
-
-**Start your journey today. Level up your life, one attribute at a time.** ⚡
