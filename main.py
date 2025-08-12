@@ -1,13 +1,9 @@
-# main.py
-import tkinter as tk
 from database import initialize_db
-from ui import HabitTrackerApp
+import tkinter as tk
+from ui.app import HabitTrackerApp
 
-def main():
+if __name__ == "__main__":
     initialize_db()
     root = tk.Tk()
     HabitTrackerApp(root)
     root.mainloop()
-
-if __name__ == "__main__":
-    main()
