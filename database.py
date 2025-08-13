@@ -1,18 +1,20 @@
-# database.py — SQLite helpers (attributes, entries, meta, journal)
+# database.py — SQLite helpers (attributes, entries, meta, journal, daily double, contracts)
 import sqlite3
+import random
 from pathlib import Path
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 DB_FILE = Path("habit_tracker.db")
 
 def get_connection():
-    # Create a new connection per call; callers close it (or use context mgr)
+    """Create a new connection per call; callers must close (or use context mgr)."""
     return sqlite3.connect(DB_FILE)
 
 def initialize_db():
     conn = get_connection()
     cur = conn.cursor()
 
+    # Core tables
     cur.execute("""
         CREATE TABLE IF NOT EXISTS attributes(
             name TEXT PRIMARY KEY,
@@ -49,7 +51,7 @@ def initialize_db():
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS daily_double (
-          day TEXT PRIMARY KEY,
+          day TEXT PRIMARY KEY,           -- YYYY-MM-DD
           atone_category TEXT NOT NULL,
           sin_category   TEXT NOT NULL
         );
@@ -59,14 +61,24 @@ def initialize_db():
         CREATE TABLE IF NOT EXISTS contracts (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
-          start_date TEXT NOT NULL,
-          end_date   TEXT NOT NULL,
+          start_date TEXT NOT NULL,       -- YYYY-MM-DD
+          end_date   TEXT NOT NULL,       -- YYYY-MM-DD (inclusive)
           penalty_xp INTEGER NOT NULL DEFAULT 100,
           active INTEGER NOT NULL DEFAULT 1,
           broken INTEGER NOT NULL DEFAULT 0,
           penalty_applied INTEGER NOT NULL DEFAULT 0
         );
     """)
+
+    # Lightweight migration: add expires_at for hour-limited pacts if missing
+    try:
+        cur.execute("ALTER TABLE contracts ADD COLUMN expires_at TEXT")  # 'YYYY-MM-DD HH:MM:SS' localtime
+    except sqlite3.OperationalError:
+        pass  # already exists
+
+    # Helpful indexes
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(date)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_contracts_active ON contracts(active)")
 
     conn.commit()
     conn.close()
@@ -191,13 +203,23 @@ def set_daily_double(day_iso: str, atone_category: str, sin_category: str):
 
 # -------- contracts --------
 def get_active_contracts(day_iso: str):
+    """
+    Return active contracts on a given day. A contract is active if:
+      - active=1 AND broken=0, AND
+      - (expires_at is NULL AND day_iso between start_date and end_date), OR
+      - (expires_at is not NULL AND now <= expires_at)
+    """
     conn = get_connection()
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute("""
-        SELECT id,title,start_date,end_date,penalty_xp,active,broken,penalty_applied
+        SELECT id,title,start_date,end_date,penalty_xp,active,broken,penalty_applied,expires_at
         FROM contracts
-        WHERE active=1 AND date(?) BETWEEN date(start_date) AND date(end_date)
+        WHERE active=1 AND broken=0 AND (
+            (expires_at IS NULL AND date(?) BETWEEN date(start_date) AND date(end_date))
+            OR (expires_at IS NOT NULL AND datetime('now','localtime') <= datetime(expires_at))
+        )
+        ORDER BY COALESCE(expires_at, end_date) ASC, id ASC
     """, (day_iso,))
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
@@ -207,9 +229,20 @@ def create_contract(title: str, penalty_xp: int, start_iso: str, end_iso: str):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO contracts(title,start_date,end_date,penalty_xp,active,broken,penalty_applied)
-        VALUES (?,?,?,?,1,0,0)
-    """, (title, start_iso, end_iso, penalty_xp))
+        INSERT INTO contracts(title,start_date,end_date,penalty_xp,active,broken,penalty_applied,expires_at)
+        VALUES (?,?,?,?,1,0,0,NULL)
+    """, (title, start_iso, end_iso, int(penalty_xp)))
+    conn.commit()
+    conn.close()
+
+def _insert_contract(title: str, penalty_xp: int, start_iso: str, end_iso: str = None, expires_at: str = None):
+    """Internal helper for daily auto-generation (supports hour-limited contracts)."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO contracts(title,start_date,end_date,penalty_xp,active,broken,penalty_applied,expires_at)
+        VALUES (?,?,?,?,1,0,0,?)
+    """, (title, start_iso, end_iso or start_iso, int(penalty_xp), expires_at))
     conn.commit()
     conn.close()
 
@@ -226,6 +259,54 @@ def mark_contract_penalty_applied(cid: int):
     cur.execute("UPDATE contracts SET penalty_applied=1 WHERE id=?", (cid,))
     conn.commit()
     conn.close()
+
+def generate_daily_contracts_if_needed():
+    """
+    Create 1–3 time-sensitive contracts once per calendar day.
+    Some expire in hours (expires_at), others in days (end_date).
+    Uses meta key 'contracts_generated_for' to ensure idempotence.
+    """
+    today = date.today().isoformat()
+    if get_meta("contracts_generated_for") == today:
+        return
+
+    now = datetime.now()
+    # pools: (title, penalty_xp, span)
+    hourly_pool = [
+        ("1-hour Journal + Meditate", 250, 2),   # 2 hours from now
+        ("No phone for 2 hours", 200, 2),
+        ("Deep Work 90 minutes", 220, 2),
+    ]
+    daily_pool = [
+        ("No Social Media (today)", 300, 1),
+        ("Walk 7k steps today", 180, 1),
+        ("Lights out by 11pm", 200, 1),
+    ]
+    multi_day_pool = [
+        ("Wake up by 7:00 AM (3 days)", 400, 3),
+        ("No Social Media (7 days)", 800, 7),
+    ]
+
+    count = random.randint(1, 3)
+    choices = []
+    pools = [hourly_pool, daily_pool, multi_day_pool]
+    random.shuffle(pools)
+    for pool in pools:
+        if pool and len(choices) < count:
+            choices.append(random.choice(pool))
+    while len(choices) < count:
+        choices.append(random.choice(daily_pool + multi_day_pool + hourly_pool))
+
+    for title, penalty, span in choices:
+        # heuristic: if explicitly hourly in title or span small, make it hour-limited
+        if "hour" in title.lower() or (span <= 3 and random.random() < 0.5):
+            expires = (now + timedelta(hours=span)).strftime("%Y-%m-%d %H:%M:%S")
+            _insert_contract(title, penalty_xp=penalty, start_iso=today, end_iso=today, expires_at=expires)
+        else:
+            end = (date.today() + timedelta(days=span - 1)).isoformat()
+            _insert_contract(title, penalty_xp=penalty, start_iso=today, end_iso=end, expires_at=None)
+
+    set_meta("contracts_generated_for", today)
 
 # -------- baselines --------
 def get_baselines():
