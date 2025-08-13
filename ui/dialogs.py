@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox
 from constants import COLORS, FONTS
+from widgets import RoundButton
+
 
 def ask_action(root, title, categories, menu_map):
     """
@@ -74,9 +76,15 @@ def ask_action(root, title, categories, menu_map):
         dlg.destroy()
 
     result = [None]  # mutable holder
-    tk.Button(dlg, text="Save",
-              bg=COLORS["PRIMARY"] if title=="Atone" else COLORS["ACCENT"],
-              fg=COLORS["WHITE"], padx=14, pady=8, command=on_save).pack(pady=12)
+    RoundButton(
+    dlg, "Save",
+    command=on_save,
+    fill=(COLORS["PRIMARY"] if title == "Atone" else COLORS["ACCENT"]),
+    hover_fill=("#7A71FF" if title == "Atone" else "#19B8C7"),
+    fg=COLORS["WHITE"],
+    padx=14, pady=8, radius=12
+).pack(pady=12)
+
 
     root.wait_window(dlg)
     return tuple(result) if result[0] else None

@@ -1,79 +1,61 @@
-# widgets.py — rounded canvas button (no native focus ring)
+# widgets.py
 import tkinter as tk
-from constants import COLORS, FONTS
+import tkinter.font as tkfont
 
-# Subtle shadow color (Tkinter can't do alpha like #00000024)
-SHADOW = "#C7CAD1"   # light grey shadow
-
-class RoundButton(tk.Canvas):
+class RoundButton(tk.Frame):
     def __init__(self, master, text, command=None,
-                 fill=COLORS["PRIMARY"], fg=COLORS["WHITE"],
-                 hover_fill=None, radius=14, padx=18, pady=8, **kwargs):
-        super().__init__(master, highlightthickness=0, bd=0,
-                         bg=master.cget("bg"), height=1, width=1, **kwargs)
-        self.command = command
-        self.fg = fg
-        self.fill = fill
-        self.hover_fill = hover_fill or fill
-        self.radius = radius
-        self.padx, self.pady = padx, pady
+                 fill="#6C63FF", hover_fill="#7A71FF",
+                 fg="#FFFFFF", padx=14, pady=8, radius=12,
+                 font=("Helvetica", 12, "bold")):
+        super().__init__(master, bg=getattr(master, "bg", master["bg"]))
+        self.text, self.command = text, command
+        self.fill, self.hover_fill, self.fg = fill, hover_fill, fg
+        self.padx, self.pady, self.radius, self.font = padx, pady, radius, font
 
-        self._rect = None
-        self._text = None
-        self._draw(text)
-        self.bind("<Button-1>", self._click)
-        self.bind("<Enter>", lambda e: self._set_fill(self.hover_fill))
-        self.bind("<Leave>", lambda e: self._set_fill(self.fill))
+        parent_bg = getattr(master, "bg", master["bg"])
+        self.canvas = tk.Canvas(self, bg=parent_bg, highlightthickness=0, bd=0)  # no borders
+        self.canvas.pack(fill="both", expand=True)
+        self.canvas.bind("<Enter>", lambda e: self._set_hover(True))
+        self.canvas.bind("<Leave>", lambda e: self._set_hover(False))
+        self.canvas.bind("<Button-1>", lambda e: self._invoke())
 
-    def _draw(self, text):
-        # measure text
-        tmp = tk.Label(self, text=text, font=FONTS["btn"])
-        tmp.update_idletasks()
-        w = tmp.winfo_reqwidth()
-        h = tmp.winfo_reqheight()
-        tmp.destroy()
+        self._hovered = False
+        self._enabled = True
+        self._bg_id = self._text_id = None
+        self.after(0, self._redraw)
 
-        width = w + self.padx * 2
-        height = h + self.pady * 2
-        r = self.radius
-        self.config(width=width, height=height)
-        self.delete("all")
+    def enable(self, yes=True):
+        self._enabled = bool(yes)
+        self.canvas.itemconfigure(self._text_id, state=("normal" if yes else "disabled"))
+        self.canvas.configure(cursor=("hand2" if yes else "arrow"))
+        # dim the button when disabled
+        if self._bg_id:
+            self.canvas.itemconfigure(self._bg_id, stipple=("gray50" if not yes else ""))
 
-        # drop shadow (no alpha in Tk, so use a light grey)
-        self.create_round_rect(2, 3, width, height, r, fill=SHADOW, outline="")
+    # ---- drawing ----
+    def _rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
+        pts = [
+            x1+r, y1,  x2-r, y1,  x2, y1,  x2, y1+r,
+            x2, y2-r,  x2, y2,  x2-r, y2,  x1+r, y2,
+            x1, y2,    x1, y2-r, x1, y1+r, x1, y1
+        ]
+        return self.canvas.create_polygon(pts, smooth=True, splinesteps=36,
+                                          outline="", width=0, **kwargs)
 
-        # main pill
-        self._rect = self.create_round_rect(0, 0, width-2, height-2, r,
-                                            fill=self.fill, outline="")
+    def _redraw(self):
+        self.canvas.delete("all")
+        f = tkfont.Font(font=self.font)
+        tw, th = f.measure(self.text), f.metrics("linespace")
+        w, h = tw + self.padx*2, th + self.pady*2
+        self.canvas.config(width=w, height=h)
+        fill = self.hover_fill if self._hovered else self.fill
+        self._bg_id = self._rounded_rect(0, 0, w, h, self.radius, fill=fill)
+        self._text_id = self.canvas.create_text(w/2, h/2, text=self.text, fill=self.fg, font=self.font)
 
-        self._text = self.create_text(width//2, height//2, text=text,
-                                      fill=self.fg, font=FONTS["btn"])
+    def _set_hover(self, on):
+        self._hovered = bool(on)
+        self._redraw()
 
-    def create_round_rect(self, x1, y1, x2, y2, r, **kwargs):
-        # rounded rectangle via rectangles + arcs
-        body = self.create_rectangle(x1+r, y1, x2-r, y2, **kwargs)
-        self.create_rectangle(x1, y1+r, x2, y2-r, **kwargs)
-        # corners
-        self.create_arc(x1, y1, x1+2*r, y1+2*r, start=90, extent=90, style="pieslice", **kwargs)
-        self.create_arc(x2-2*r, y1, x2, y1+2*r, start=0, extent=90, style="pieslice", **kwargs)
-        self.create_arc(x1, y2-2*r, x1+2*r, y2, start=180, extent=90, style="pieslice", **kwargs)
-        self.create_arc(x2-2*r, y2-2*r, x2, y2, start=270, extent=90, style="pieslice", **kwargs)
-        return body
-
-    def _set_fill(self, color):
-        self.itemconfig(self._rect, fill=color)
-
-    def _click(self, _):
-        if self.command:
+    def _invoke(self):
+        if self._enabled and callable(self.command):
             self.command()
-
-    def enable(self, enabled=True):
-        """Enable/disable look + click."""
-        if enabled:
-            self._set_fill(self.fill)
-            self.itemconfig(self._text, fill=self.fg)
-            self.bind("<Button-1>", self._click)
-        else:
-            self._set_fill("#C7CAD1")
-            self.itemconfig(self._text, fill="#7B7F87")
-            self.unbind("<Button-1>")
