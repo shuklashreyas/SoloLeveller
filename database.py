@@ -1,11 +1,12 @@
 # database.py — SQLite helpers (attributes, entries, meta, journal)
 import sqlite3
 from pathlib import Path
+from datetime import date, timedelta
 
 DB_FILE = Path("habit_tracker.db")
 
 def get_connection():
-    # Enable row factory only when needed
+    # Create a new connection per call; callers close it (or use context mgr)
     return sqlite3.connect(DB_FILE)
 
 def initialize_db():
@@ -46,9 +47,31 @@ def initialize_db():
         );
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS daily_double (
+          day TEXT PRIMARY KEY,
+          atone_category TEXT NOT NULL,
+          sin_category   TEXT NOT NULL
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS contracts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          start_date TEXT NOT NULL,
+          end_date   TEXT NOT NULL,
+          penalty_xp INTEGER NOT NULL DEFAULT 100,
+          active INTEGER NOT NULL DEFAULT 1,
+          broken INTEGER NOT NULL DEFAULT 0,
+          penalty_applied INTEGER NOT NULL DEFAULT 0
+        );
+    """)
+
     conn.commit()
     conn.close()
 
+# -------- meta --------
 def get_meta(key: str):
     conn = get_connection()
     cur = conn.cursor()
@@ -68,6 +91,7 @@ def set_meta(key: str, value: str):
     conn.commit()
     conn.close()
 
+# -------- attributes --------
 def get_attributes():
     conn = get_connection()
     cur = conn.cursor()
@@ -105,6 +129,7 @@ def update_attribute_score(name: str, delta: int):
     conn.commit()
     conn.close()
 
+# -------- entries --------
 def insert_entry(date: str, entry_type: str, category: str, item: str, points: int):
     conn = get_connection()
     cur = conn.cursor()
@@ -115,7 +140,7 @@ def insert_entry(date: str, entry_type: str, category: str, item: str, points: i
     conn.close()
 
 def get_entries_by_date(date: str):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_connection()
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute("""
@@ -126,7 +151,7 @@ def get_entries_by_date(date: str):
     conn.close()
     return rows
 
-# Journal
+# -------- journal --------
 def get_journal(date: str):
     conn = get_connection()
     cur = conn.cursor()
@@ -144,3 +169,84 @@ def upsert_journal(date: str, content: str):
     """, (date, content))
     conn.commit()
     conn.close()
+
+# -------- daily double --------
+def get_daily_double(day_iso: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT atone_category, sin_category FROM daily_double WHERE day=?", (day_iso,))
+    row = cur.fetchone()
+    conn.close()
+    return {"atone": row[0], "sin": row[1]} if row else None
+
+def set_daily_double(day_iso: str, atone_category: str, sin_category: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT OR REPLACE INTO daily_double(day, atone_category, sin_category) VALUES (?,?,?)",
+        (day_iso, atone_category, sin_category)
+    )
+    conn.commit()
+    conn.close()
+
+# -------- contracts --------
+def get_active_contracts(day_iso: str):
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id,title,start_date,end_date,penalty_xp,active,broken,penalty_applied
+        FROM contracts
+        WHERE active=1 AND date(?) BETWEEN date(start_date) AND date(end_date)
+    """, (day_iso,))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+def create_contract(title: str, penalty_xp: int, start_iso: str, end_iso: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO contracts(title,start_date,end_date,penalty_xp,active,broken,penalty_applied)
+        VALUES (?,?,?,?,1,0,0)
+    """, (title, start_iso, end_iso, penalty_xp))
+    conn.commit()
+    conn.close()
+
+def mark_contract_broken(cid: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE contracts SET broken=1 WHERE id=?", (cid,))
+    conn.commit()
+    conn.close()
+
+def mark_contract_penalty_applied(cid: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE contracts SET penalty_applied=1 WHERE id=?", (cid,))
+    conn.commit()
+    conn.close()
+
+# -------- baselines --------
+def get_baselines():
+    """Return {trait: baseline_int}. Uses attributes.baseline if present, else meta 'baseline:<Trait>'."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("PRAGMA table_info(attributes)")
+        cols = cur.fetchall()
+        has_baseline = any(c[1] == "baseline" for c in cols)
+    except Exception:
+        has_baseline = False
+
+    out = {}
+    if has_baseline:
+        cur.execute("SELECT name, baseline FROM attributes")
+        for name, base in cur.fetchall():
+            out[name] = int(base)
+    else:
+        cur.execute("SELECT key, value FROM meta WHERE key LIKE 'baseline:%'")
+        for k, v in cur.fetchall():
+            out[k.split("baseline:", 1)[1]] = int(v)
+    conn.close()
+    return out

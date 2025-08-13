@@ -4,7 +4,7 @@ from constants import COLORS, FONTS
 from widgets import RoundButton
 
 class ActionsBar(tk.Frame):
-    def __init__(self, master, on_atone, on_sin, on_theme):
+    def __init__(self, master, on_atone, on_sin, on_theme, on_contracts):
         super().__init__(master, bg=COLORS["BG"])
         self.atone_btn = RoundButton(self, "Atone",
                                      fill=COLORS["PRIMARY"], hover_fill="#7A71FF",
@@ -18,12 +18,17 @@ class ActionsBar(tk.Frame):
                                    command=on_sin)
         self.sin_btn.pack(side="left", padx=12)
 
-        # NEW: Theme button
         self.theme_btn = RoundButton(self, "Theme",
                                      fill=COLORS["CARD"], hover_fill="#E3D4FF",
                                      fg=COLORS["TEXT"], padx=16, pady=10, radius=14,
                                      command=on_theme)
-        self.theme_btn.pack(side="left", padx=12)
+        self.theme_btn.pack(side="left", padx=8)
+
+        self.contracts_btn = RoundButton(self, "Contracts",
+                                         fill=COLORS["CARD"], hover_fill="#E3D4FF",
+                                         fg=COLORS["TEXT"], padx=16, pady=10, radius=14,
+                                         command=on_contracts)
+        self.contracts_btn.pack(side="left", padx=8)
 
         tk.Label(self, text="You can log only for TODAY.", font=FONTS["small"],
                  bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(side="right", padx=16)
@@ -31,4 +36,4 @@ class ActionsBar(tk.Frame):
     def enable(self, is_today: bool):
         self.atone_btn.enable(is_today)
         self.sin_btn.enable(is_today)
-        # Theme is always enabled
+        # Theme/Contracts always enabled
