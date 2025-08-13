@@ -1,6 +1,7 @@
 # widgets.py
 import tkinter as tk
 import tkinter.font as tkfont
+from sound import play_sfx
 
 class RoundButton(tk.Frame):
     def __init__(self, master, text, command=None,
@@ -58,4 +59,6 @@ class RoundButton(tk.Frame):
 
     def _invoke(self):
         if self._enabled and callable(self.command):
+            play_sfx("click")   # NEW
             self.command()
+

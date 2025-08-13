@@ -1,17 +1,19 @@
-# Orchestrates the UI by composing small components + Theme switcher
+# Orchestrates the UI by composing small components + Theme switcher + SFX
 
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date, timedelta
+from sound import play_sfx
+from sound import init as init_sound
 
 from constants import (
     COLORS, FONTS, POSITIVE_TRAITS, SINS,
     SIN_TO_ATTRIBUTE, STAT_MIN, STAT_MAX,
-    ATONE_MENU, SIN_MENU,            # existing
-    PALETTES, set_theme              # NEW: for theming
+    ATONE_MENU, SIN_MENU,
+    PALETTES, set_theme
 )
 from database import (
-    get_meta, set_meta,              # NEW: persist theme
+    get_meta, set_meta,
     get_attributes, update_attribute_score,
     insert_entry, get_entries_by_date, get_journal, upsert_journal
 )
@@ -38,7 +40,10 @@ class HabitTrackerApp:
         self.root = root
         self.root.title("Habit Tracker — Solo Level-Up")
 
-        # --- Load saved theme BEFORE building UI ---
+        # Init audio backend once
+        init_sound()
+
+        # Load saved theme BEFORE building UI
         saved_theme = get_meta("theme")
         if saved_theme and saved_theme in PALETTES:
             set_theme(saved_theme)
@@ -47,9 +52,10 @@ class HabitTrackerApp:
         self.root.configure(bg=COLORS["BG"])
 
         style = ttk.Style()
-        try: style.theme_use("clam")
-        except tk.TclError: pass
-
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
         self._apply_styles(style)
 
         # First-run quiz
@@ -98,12 +104,12 @@ class HabitTrackerApp:
         self.logs = LogsPanel(right)
         self.logs.pack(fill="both", expand=True, padx=4, pady=0)
 
-        # Bottom actions (now with Theme button)
+        # Bottom actions (with Theme button)
         self.actions = ActionsBar(
             self.root,
             on_atone=self.open_atone_dialog,
             on_sin=self.open_sin_dialog,
-            on_theme=self.open_theme_picker,   # NEW
+            on_theme=self.open_theme_picker,
         )
         self.actions.pack(fill="x", pady=10)
 
@@ -203,6 +209,12 @@ class HabitTrackerApp:
 
         category, item_text, pts = result  # pts can be negative for SIN
 
+        # Determine which attribute will change (for SIN it maps to a trait)
+        changed_attr = category if kind == "ATONE" else SIN_TO_ATTRIBUTE.get(category)
+        old_val = None
+        if changed_attr:
+            old_val = get_attributes().get(changed_attr, {}).get("score", STAT_MIN)
+
         # Save entry
         insert_entry(
             date=self.current_date.isoformat(),
@@ -212,13 +224,20 @@ class HabitTrackerApp:
             points=pts
         )
 
-        # Attribute adjustments
+        # Attribute adjustments + stat SFX
         if kind == "ATONE":
             update_attribute_score(category, abs(pts))
         else:
-            target = SIN_TO_ATTRIBUTE.get(category)
-            if target:
-                update_attribute_score(target, pts)
+            if changed_attr:
+                update_attribute_score(changed_attr, pts)
+
+        if changed_attr is not None:
+            new_val = get_attributes().get(changed_attr, {}).get("score", STAT_MIN)
+            if old_val is not None:
+                if new_val > old_val:
+                    play_sfx("statsUp")
+                elif new_val < old_val:
+                    play_sfx("statsDown")
 
         # XP and level-up
         before = level_from_xp(get_total_xp())
@@ -226,6 +245,7 @@ class HabitTrackerApp:
         after = level_from_xp(after_total)
         self.refresh_all()
         if after > before:
+            play_sfx("levelUp")
             messagebox.showinfo("LEVEL UP!", f"You reached Level {after}!")
 
     # ---------- Theme picker ----------
@@ -268,8 +288,10 @@ class HabitTrackerApp:
         self.root.configure(bg=COLORS["BG"])
 
         style = ttk.Style()
-        try: style.theme_use("clam")
-        except tk.TclError: pass
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
         self._apply_styles(style)
 
         # Rebuild widgets and refresh current state
