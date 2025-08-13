@@ -115,3 +115,47 @@ ATTR_DESCRIPTIONS = {
     "Intellect": "Reading, course/lectures, deliberate practice, learning.",
     "Character": "Helping others, kindness, volunteering, owning mistakes.",
 }
+
+
+def _shade(hex_color, factor=0.9):
+    h = hex_color.lstrip("#")
+    r,g,b = int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
+    r = max(0, min(255, int(r*factor)))
+    g = max(0, min(255, int(g*factor)))
+    b = max(0, min(255, int(b*factor)))
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+PALETTES = {
+    "Aurora Synth":  {"BG":"#0B0F1A","CARD":"#111827","PRIMARY":"#7C3AED","ACCENT":"#22D3EE","TEXT":"#E5E7EB","MUTED":"#94A3B8"},
+    "Sunset Soda":   {"BG":"#0B0C22","CARD":"#14143A","PRIMARY":"#FF5C8A","ACCENT":"#FFD166","TEXT":"#F1F5F9","MUTED":"#94A3B8"},
+    "Royal Indigo":  {"BG":"#F6F7FB","CARD":"#ECEFF5","PRIMARY":"#4F46E5","ACCENT":"#06B6D4","TEXT":"#111827","MUTED":"#6B7280"},
+    "Forest Sage":   {"BG":"#F3F6F3","CARD":"#E8F0EA","PRIMARY":"#2E7D32","ACCENT":"#3B82F6","TEXT":"#0F172A","MUTED":"#64748B"},
+    "Blush Noir":    {"BG":"#0F1014","CARD":"#16181E","PRIMARY":"#F472B6","ACCENT":"#60A5FA","TEXT":"#E5E7EB","MUTED":"#9CA3AF"},
+    "Slate Mono":    {"BG":"#F8FAFC","CARD":"#EEF2F7","PRIMARY":"#334155","ACCENT":"#0EA5E9","TEXT":"#0F172A","MUTED":"#64748B"},
+}
+
+THEME = "Aurora Synth"  # default; can be overridden from DB on startup
+
+# Shared mutable COLORS dict so theme changes propagate across modules
+COLORS = {}
+def _derive(base):
+    return {
+        **base,
+        "PRIMARY_HOVER": _shade(base["PRIMARY"], 0.92),
+        "PRIMARY_ACTIVE": _shade(base["PRIMARY"], 0.84),
+        "ACCENT_HOVER": _shade(base["ACCENT"], 0.92),
+        "ACCENT_ACTIVE": _shade(base["ACCENT"], 0.84),
+        "WHITE": "#FFFFFF",
+    }
+
+# initialize COLORS
+COLORS.update(_derive(PALETTES[THEME]))
+
+def set_theme(name: str):
+    """Mutate COLORS in-place and set THEME. Callers should re-style widgets."""
+    global THEME
+    if name not in PALETTES:
+        return
+    THEME = name
+    COLORS.clear()
+    COLORS.update(_derive(PALETTES[name]))

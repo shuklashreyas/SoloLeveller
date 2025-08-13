@@ -1,4 +1,4 @@
-# Orchestrates the UI by composing small components
+# Orchestrates the UI by composing small components + Theme switcher
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -7,10 +7,12 @@ from datetime import date, timedelta
 from constants import (
     COLORS, FONTS, POSITIVE_TRAITS, SINS,
     SIN_TO_ATTRIBUTE, STAT_MIN, STAT_MAX,
-    ATONE_MENU, SIN_MENU
+    ATONE_MENU, SIN_MENU,            # existing
+    PALETTES, set_theme              # NEW: for theming
 )
 from database import (
-    get_meta, get_attributes, update_attribute_score,
+    get_meta, set_meta,              # NEW: persist theme
+    get_attributes, update_attribute_score,
     insert_entry, get_entries_by_date, get_journal, upsert_journal
 )
 from exp_system import (
@@ -35,6 +37,12 @@ class HabitTrackerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Habit Tracker — Solo Level-Up")
+
+        # --- Load saved theme BEFORE building UI ---
+        saved_theme = get_meta("theme")
+        if saved_theme and saved_theme in PALETTES:
+            set_theme(saved_theme)
+
         self.root.geometry("1024x840")
         self.root.configure(bg=COLORS["BG"])
 
@@ -42,20 +50,7 @@ class HabitTrackerApp:
         try: style.theme_use("clam")
         except tk.TclError: pass
 
-        style.configure("Treeview",
-                        background=COLORS["CARD"],
-                        fieldbackground=COLORS["CARD"],
-                        foreground=COLORS["TEXT"],
-                        rowheight=24)
-        style.configure("Treeview.Heading",
-                        background=COLORS["PRIMARY"],
-                        foreground=COLORS["WHITE"])
-        style.configure("XP.Horizontal.TProgressbar",
-                        troughcolor=COLORS["CARD"],
-                        background=COLORS["PRIMARY"])
-        style.configure("Stat.Horizontal.TProgressbar",
-                        troughcolor="#D4D4D8",
-                        background=COLORS["ACCENT"])
+        self._apply_styles(style)
 
         # First-run quiz
         if get_meta("quiz_done") != "1":
@@ -103,13 +98,31 @@ class HabitTrackerApp:
         self.logs = LogsPanel(right)
         self.logs.pack(fill="both", expand=True, padx=4, pady=0)
 
-        # Bottom actions
+        # Bottom actions (now with Theme button)
         self.actions = ActionsBar(
             self.root,
             on_atone=self.open_atone_dialog,
-            on_sin=self.open_sin_dialog
+            on_sin=self.open_sin_dialog,
+            on_theme=self.open_theme_picker,   # NEW
         )
         self.actions.pack(fill="x", pady=10)
+
+    # ---------- Styles ----------
+    def _apply_styles(self, style: ttk.Style):
+        style.configure("Treeview",
+                        background=COLORS["CARD"],
+                        fieldbackground=COLORS["CARD"],
+                        foreground=COLORS["TEXT"],
+                        rowheight=24)
+        style.configure("Treeview.Heading",
+                        background=COLORS["PRIMARY"],
+                        foreground=COLORS["WHITE"])
+        style.configure("XP.Horizontal.TProgressbar",
+                        troughcolor=COLORS["CARD"],
+                        background=COLORS["PRIMARY"])
+        style.configure("Stat.Horizontal.TProgressbar",
+                        troughcolor="#D4D4D8",
+                        background=COLORS["ACCENT"])
 
     # ---------- Refresh ----------
     def refresh_all(self, first=False):
@@ -214,3 +227,51 @@ class HabitTrackerApp:
         self.refresh_all()
         if after > before:
             messagebox.showinfo("LEVEL UP!", f"You reached Level {after}!")
+
+    # ---------- Theme picker ----------
+    def open_theme_picker(self):
+        win = tk.Toplevel(self.root)
+        win.title("Choose Theme")
+        win.configure(bg=COLORS["BG"])
+        win.geometry("360x210")
+        win.grab_set()
+
+        tk.Label(win, text="Theme", font=("Helvetica", 14, "bold"),
+                 bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(pady=(12, 6))
+
+        names = list(PALETTES.keys())
+        current = get_meta("theme") or names[0]
+        var = tk.StringVar(value=current)
+
+        cb = ttk.Combobox(win, values=names, textvariable=var, state="readonly", width=28)
+        cb.pack(pady=8)
+
+        def apply_and_close():
+            name = var.get()
+            if name not in PALETTES:
+                return
+            set_theme(name)
+            set_meta("theme", name)
+            self._rebuild_ui()
+            win.destroy()
+
+        RoundButton(win, "Apply Theme",
+                    fill=COLORS["PRIMARY"], hover_fill=COLORS["PRIMARY_HOVER"],
+                    fg=COLORS["WHITE"], padx=16, pady=8, radius=12,
+                    command=apply_and_close).pack(pady=14)
+
+    def _rebuild_ui(self):
+        # Destroy current UI and rebuild with new COLORS
+        for w in self.root.winfo_children():
+            w.destroy()
+
+        self.root.configure(bg=COLORS["BG"])
+
+        style = ttk.Style()
+        try: style.theme_use("clam")
+        except tk.TclError: pass
+        self._apply_styles(style)
+
+        # Rebuild widgets and refresh current state
+        self._build_ui()
+        self.refresh_all(first=False)
