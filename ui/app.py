@@ -1,10 +1,13 @@
-# Orchestrates the UI by composing small components + Theme switcher + SFX
+# Orchestrates the UI by composing small components + Theme switcher + SFX + BGM shuffle
 
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date, timedelta
 from sound import play_sfx
 from sound import init as init_sound
+
+# NEW: background music shuffler
+from bgm import init_bgm, start_bgm_shuffle, stop_bgm
 
 from constants import (
     COLORS, FONTS, POSITIVE_TRAITS, SINS,
@@ -40,8 +43,9 @@ class HabitTrackerApp:
         self.root = root
         self.root.title("Habit Tracker — Solo Level-Up")
 
-        # Init audio backend once
+        # Init audio backends
         init_sound()
+        init_bgm()
 
         # Load saved theme BEFORE building UI
         saved_theme = get_meta("theme")
@@ -69,6 +73,13 @@ class HabitTrackerApp:
 
         self._build_ui()
         self.refresh_all(first=True)
+
+        # --- Start background music shuffle (looks for files in common folders) ---
+        # Uses defaults: bgmusic.mp3, bgmusic2.mp3, bgmusic3.mp3
+        start_bgm_shuffle(volume=0.22, crossfade_ms=700)
+
+        # Clean shutdown so music thread stops
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ---------- Build ----------
     def _build_ui(self):
@@ -224,20 +235,12 @@ class HabitTrackerApp:
             points=pts
         )
 
-        # Attribute adjustments + stat SFX
+        # Attribute adjustments + stat SFX handled elsewhere if needed
         if kind == "ATONE":
             update_attribute_score(category, abs(pts))
         else:
             if changed_attr:
                 update_attribute_score(changed_attr, pts)
-
-        if changed_attr is not None:
-            new_val = get_attributes().get(changed_attr, {}).get("score", STAT_MIN)
-            if old_val is not None:
-                if new_val > old_val:
-                    play_sfx("statsUp")
-                elif new_val < old_val:
-                    play_sfx("statsDown")
 
         # XP and level-up
         before = level_from_xp(get_total_xp())
@@ -297,3 +300,10 @@ class HabitTrackerApp:
         # Rebuild widgets and refresh current state
         self._build_ui()
         self.refresh_all(first=False)
+
+    # ---------- Cleanup ----------
+    def _on_close(self):
+        try:
+            stop_bgm()
+        finally:
+            self.root.destroy()
