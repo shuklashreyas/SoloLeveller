@@ -52,7 +52,7 @@ class HabitTrackerApp:
         if saved_theme and saved_theme in PALETTES:
             set_theme(saved_theme)
 
-        self.root.geometry("1024x840")
+        self.root.geometry("1544x890+5+43")
         self.root.configure(bg=COLORS["BG"])
 
         style = ttk.Style()
@@ -123,7 +123,7 @@ class HabitTrackerApp:
             on_theme=self.open_theme_picker,
         )
         self.actions.pack(fill="x", pady=10)
-
+      
     # ---------- Styles ----------
     def _apply_styles(self, style: ttk.Style):
         style.configure("Treeview",
@@ -218,10 +218,12 @@ class HabitTrackerApp:
         if result is None:
             return
 
-        category, item_text, pts = result  # pts can be negative for SIN
+        category, item_text, pts = result  # pts positive for ATONE, negative for SIN as set by dialog
 
-        # Determine which attribute will change (for SIN it maps to a trait)
+        # Which attribute will change?  (SIN maps to a positive trait)
         changed_attr = category if kind == "ATONE" else SIN_TO_ATTRIBUTE.get(category)
+
+        # Capture old value to detect delta for SFX
         old_val = None
         if changed_attr:
             old_val = get_attributes().get(changed_attr, {}).get("score", STAT_MIN)
@@ -235,14 +237,22 @@ class HabitTrackerApp:
             points=pts
         )
 
-        # Attribute adjustments + stat SFX handled elsewhere if needed
+        # Apply stat change
         if kind == "ATONE":
             update_attribute_score(category, abs(pts))
         else:
             if changed_attr:
                 update_attribute_score(changed_attr, pts)
 
-        # XP and level-up
+        # ---- SFX: stat up/down (only if value actually changed) ----
+        if changed_attr is not None and old_val is not None:
+            new_val = get_attributes().get(changed_attr, {}).get("score", STAT_MIN)
+            if new_val > old_val:
+                play_sfx("statsUp")
+            elif new_val < old_val:
+                play_sfx("statsDown")
+
+        # XP + level-up SFX
         before = level_from_xp(get_total_xp())
         after_total = add_total_xp(pts * 10)
         after = level_from_xp(after_total)
@@ -250,6 +260,7 @@ class HabitTrackerApp:
         if after > before:
             play_sfx("levelUp")
             messagebox.showinfo("LEVEL UP!", f"You reached Level {after}!")
+
 
     # ---------- Theme picker ----------
     def open_theme_picker(self):
