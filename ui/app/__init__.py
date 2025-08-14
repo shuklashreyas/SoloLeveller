@@ -2,6 +2,7 @@
 # Orchestrates the UI + runs BaselineQuiz BEFORE any other UI loads
 
 import tkinter as tk
+from .leveling import update_daily_emas_if_needed
 from tkinter import ttk, messagebox
 from datetime import date, timedelta
 import random
@@ -267,6 +268,20 @@ class HabitTrackerApp:
         if is_today:
             self._ensure_offers_today()
 
+        # Ensure EMA baselines are updated once per day from current scores
+        try:
+            update_daily_emas_if_needed()
+        except Exception:
+            pass
+
+        # Baselines → stats overlay (now uses updated attributes.baseline)
+        try:
+            from database import get_baselines
+            self.stats.set_baselines(get_baselines())
+        except Exception:
+            pass
+
+        
         try:
             self.stats.set_baselines(get_baselines())
         except Exception:

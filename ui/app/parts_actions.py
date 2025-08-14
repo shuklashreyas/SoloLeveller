@@ -1,19 +1,23 @@
-from tkinter import messagebox
+# ui/app/parts_actions.py
 import random
-from constants import POSITIVE_TRAITS, SINS, SIN_TO_ATTRIBUTE
+import tkinter as tk
+from tkinter import messagebox
+
+from constants import (
+    POSITIVE_TRAITS, SINS, SIN_TO_ATTRIBUTE, STAT_MIN,
+    ATONE_MENU, SIN_MENU
+)
 from database import (
-    get_attributes, insert_entry, update_attribute_score,
-    get_daily_double, get_journal, upsert_journal
+    insert_entry, get_daily_double, set_daily_double,
+    get_attributes, update_attribute_score, get_journal, upsert_journal, get_meta, set_meta
 )
-from exp_system import (
-    level_from_xp, get_total_xp, add_total_xp
-)
-from animations import flash_widget
-from sound import play_sfx
-# FIX: dialogs is in ui/dialogs.py, so go up one package
+from exp_system import level_from_xp, get_total_xp, add_total_xp
+from widgets import RoundButton
 from ..dialogs import ask_action
+from sound import play_sfx
+from .leveling import compute_xp_gain, update_streak_on_action
 
-
+# --- Journal ---
 def save_journal(self, text: str):
     from datetime import date
     if self.current_date != date.today():
@@ -21,23 +25,20 @@ def save_journal(self, text: str):
     upsert_journal(self.current_date.isoformat(), text.strip())
     self.journal.note_saved()
     try:
+        from animations import flash_widget
         flash_widget(self.journal.status_label, times=2, on="#C7F9CC")
     except Exception:
         pass
 
-
+# --- Actions ---
 def open_atone_dialog(self):
-    handle_action(self, kind="ATONE")
-
+    _handle_action(self, kind="ATONE")
 
 def open_sin_dialog(self):
-    handle_action(self, kind="SIN")
+    _handle_action(self, kind="SIN")
 
-
-def handle_action(self, kind: str):
+def _handle_action(self, kind: str):
     from datetime import date
-    from constants import STAT_MIN, ATONE_MENU, SIN_MENU
-
     if self.current_date != date.today():
         messagebox.showinfo("Not allowed", "You can only log for today.")
         return
@@ -54,23 +55,26 @@ def handle_action(self, kind: str):
     if result is None:
         return
 
-    category, item_text, pts = result  # pts positive for ATONE, negative for SIN
+    category, item_text, pts = result  # pts>0 for atone; pts<0 for sin
 
-    # Daily Double
-    dd = get_daily_double(self.current_date.isoformat())
-    if dd:
-        if kind == "ATONE" and category == dd["atone"]:
-            pts *= 2
-        elif kind == "SIN" and category == dd["sin"]:
-            pts *= 2  # stays negative
+    # Daily Double pick (seed if missing)
+    day = self.current_date.isoformat()
+    dd = get_daily_double(day)
+    if not dd:
+        dd = {"atone": random.choice(POSITIVE_TRAITS), "sin": random.choice(SINS)}
+        set_daily_double(day, dd["atone"], dd["sin"])
 
-    # Which attribute changes?
+    # Apply Daily Double to points (keeps SIN negative)
+    if (kind == "ATONE" and category == dd["atone"]) or (kind == "SIN" and category == dd["sin"]):
+        pts *= 2
+
+    # Which positive trait moves?
     changed_attr = category if kind == "ATONE" else SIN_TO_ATTRIBUTE.get(category)
 
-    # Old value to detect delta for SFX
+    # Old value for SFX
     old_val = None
     if changed_attr:
-        old_val = get_attributes().get(changed_attr, {}).get("score", 35)
+        old_val = get_attributes().get(changed_attr, {}).get("score", STAT_MIN)
 
     # Save entry
     insert_entry(
@@ -81,16 +85,19 @@ def handle_action(self, kind: str):
         points=pts
     )
 
-    # Apply stat change
+    # Update streak on first log of the day
+    update_streak_on_action()
+
+    # Stat change
     if kind == "ATONE":
         update_attribute_score(category, abs(pts))
     else:
         if changed_attr:
             update_attribute_score(changed_attr, pts)
 
-    # SFX
+    # SFX: stat up/down
     if changed_attr is not None and old_val is not None:
-        new_val = get_attributes().get(changed_attr, {}).get("score", 35)
+        new_val = get_attributes().get(changed_attr, {}).get("score", STAT_MIN)
         if new_val > old_val:
             try: play_sfx("statsUp")
             except Exception: pass
@@ -98,12 +105,16 @@ def handle_action(self, kind: str):
             try: play_sfx("statsDown")
             except Exception: pass
 
-    # XP + level-up
-    before = level_from_xp(get_total_xp())
-    after_total = add_total_xp(pts * 10)
-    after = level_from_xp(after_total)
+    # ===== XP with new rules =====
+    trait_for_xp = changed_attr if changed_attr else category
+    xp_gain = compute_xp_gain(trait_for_xp, category, item_text, pts)
+    before_lvl = level_from_xp(get_total_xp())
+    after_total = add_total_xp(xp_gain)
+    after_lvl = level_from_xp(after_total)
+
     self.refresh_all()
-    if after > before:
+
+    if after_lvl > before_lvl:
         try: play_sfx("levelUp")
         except Exception: pass
-        messagebox.showinfo("LEVEL UP!", f"You reached Level {after}!")
+        messagebox.showinfo("LEVEL UP!", f"You reached Level {after_lvl}!")
