@@ -1,14 +1,13 @@
-# Orchestrates the UI by composing small components + Theme switcher + SFX + BGM shuffle
+# Orchestrates the UI by composing small components + Theme switcher + SFX + BGM shuffle + Mute toggle
 
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date, timedelta
 import random
 
-from sound import play_sfx
-from sound import init as init_sound
+from sound import play_sfx, init as init_sound, set_muted
 
-# BGM shuffle
+# BGM shuffle (fixed trailing comma)
 from bgm import init_bgm, start_bgm_shuffle, stop_bgm
 
 # App constants / data
@@ -22,8 +21,9 @@ from database import (
     get_meta, set_meta,
     get_attributes, update_attribute_score,
     insert_entry, get_entries_by_date, get_journal, upsert_journal,
-    set_daily_double, get_daily_double, get_active_contracts,
-    create_personal_contract_limited,  # personal with limits
+    set_daily_double, get_daily_double,
+    # Personal with limits
+    create_personal_contract_limited,
     get_baselines,
     # Offers / limits
     get_available_contracts, claim_contract_offer,
@@ -32,6 +32,8 @@ from database import (
     generate_daily_contracts_if_needed,
     # For penalties
     mark_contract_broken, mark_contract_penalty_applied,
+    # If your DB exposes this; otherwise guard usage in UI.
+    # get_active_contracts,   # ← uncomment if you have it
 )
 
 from prompts import get_prompt_for_date
@@ -68,6 +70,11 @@ class HabitTrackerApp:
         if saved_theme and saved_theme in PALETTES:
             set_theme(saved_theme)
 
+        # Load saved mute state (default: sound ON)
+        muted_flag = (get_meta("sound_muted") == "1")
+        self.sound_enabled = not muted_flag
+        set_muted(muted_flag)
+
         # Start size/position (user can still resize)
         self.root.geometry("1544x890+5+43")
         self.root.configure(bg=COLORS["BG"])
@@ -91,14 +98,23 @@ class HabitTrackerApp:
         self._build_ui()
         self.refresh_all(first=True)
 
-        # Start background music shuffle (looks for bgmusic.mp3, bgmusic2.mp3, bgmusic3.mp3)
-        start_bgm_shuffle(volume=0.22, crossfade_ms=700)
+        # Start background music shuffle only if sound is enabled
+        if self.sound_enabled:
+            start_bgm_shuffle(volume=0.22, crossfade_ms=700)
 
         # Clean shutdown so music thread stops
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        # handy shortcut (optional): open contracts with Ctrl+Shift+C
+        # handy shortcuts
         self.root.bind("<Control-Shift-C>", lambda e: self.open_contracts())
+        self.root.bind("<Control-m>", lambda e: self.toggle_sound())
+        self.root.bind("<Control-M>", lambda e: self.toggle_sound())
+
+        # Reflect initial sound state on the button
+        try:
+            self.actions.set_sound_state(self.sound_enabled)
+        except Exception:
+            pass
 
     # ---------- Build ----------
     def _build_ui(self):
@@ -138,7 +154,7 @@ class HabitTrackerApp:
         self.logs = LogsPanel(right)
         self.logs.pack(fill="both", expand=True, padx=4, pady=0)
 
-        # Bottom actions (Theme + Contracts)
+        # Bottom actions (Theme + Contracts + Sound toggle)
         try:
             self.actions = ActionsBar(
                 self.root,
@@ -146,13 +162,17 @@ class HabitTrackerApp:
                 on_sin=self.open_sin_dialog,
                 on_theme=self.open_theme_picker,
                 on_contracts=self.open_contracts,   # if supported
+                on_faq=None,
+                on_sound_toggle=self.toggle_sound,
             )
         except TypeError:
+            # fallback for older ActionsBar signature (no sound toggle)
             self.actions = ActionsBar(
                 self.root,
                 on_atone=self.open_atone_dialog,
                 on_sin=self.open_sin_dialog,
                 on_theme=self.open_theme_picker,
+                on_contracts=self.open_contracts,
             )
         self.actions.pack(fill="x", pady=10)
 
@@ -249,6 +269,38 @@ class HabitTrackerApp:
         # Update Contracts button badge with # of available offers
         try:
             self.actions.set_contracts_badge(get_available_offers_count())
+        except Exception:
+            pass
+
+        # Update sound button state (in case it changed elsewhere)
+        try:
+            self.actions.set_sound_state(self.sound_enabled)
+        except Exception:
+            pass
+
+    # ---------- Sound toggle ----------
+    def toggle_sound(self):
+        self.sound_enabled = not self.sound_enabled
+        muted = (not self.sound_enabled)
+        # Persist + apply to SFX
+        set_meta("sound_muted", "1" if muted else "0")
+        try:
+            set_muted(muted)
+        except Exception:
+            pass
+
+        # Control BGM
+        try:
+            if muted:
+                stop_bgm()
+            else:
+                start_bgm_shuffle(volume=0.22, crossfade_ms=700)
+        except Exception:
+            pass
+
+        # Reflect in UI
+        try:
+            self.actions.set_sound_state(self.sound_enabled)
         except Exception:
             pass
 
@@ -469,7 +521,12 @@ class HabitTrackerApp:
 
         def refresh_my():
             clear_children(list_my)
-            active = get_active_contracts(date.today().isoformat())
+            # If your DB exposes get_active_contracts, use it; otherwise show a friendly message.
+            try:
+                from database import get_active_contracts  # runtime import to avoid ImportError at import time
+                active = get_active_contracts(date.today().isoformat())
+            except Exception:
+                active = []
             if not active:
                 tk.Label(list_my, text="No active contracts.", bg=COLORS["BG"], fg=COLORS["MUTED"]).pack(pady=8)
                 return
@@ -483,7 +540,11 @@ class HabitTrackerApp:
                 def make_btns(box, cid=cdata["id"]):
                     def break_it():
                         # Re-fetch current active list to avoid stale flags
-                        _active = get_active_contracts(date.today().isoformat())
+                        try:
+                            from database import get_active_contracts as _gac
+                            _active = _gac(date.today().isoformat())
+                        except Exception:
+                            _active = []
                         target = next((c for c in _active if c["id"] == cid), None)
 
                         if not target:

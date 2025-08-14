@@ -4,7 +4,7 @@ from constants import COLORS, FONTS
 from widgets import RoundButton
 
 class ActionsBar(tk.Frame):
-    def __init__(self, master, on_atone, on_sin, on_theme, on_contracts, on_faq=None):
+    def __init__(self, master, on_atone, on_sin, on_theme, on_contracts, on_faq=None, on_sound_toggle=None):
         super().__init__(master, bg=COLORS["BG"])
 
         self.atone_btn = RoundButton(
@@ -49,8 +49,17 @@ class ActionsBar(tk.Frame):
                 command=on_faq
             ); self.faq_btn.pack(side="left", padx=10)
 
-        # right-side spacer
-        tk.Label(self, text="", bg=COLORS["BG"]).pack(side="right", expand=True)
+        # Flexible spacer pushes the sound toggle to the far right
+        tk.Frame(self, bg=COLORS["BG"]).pack(side="left", expand=True, fill="x")
+
+        # --- Sound toggle (right-aligned) ---
+        self._on_sound_toggle = on_sound_toggle
+        self.sound_btn = RoundButton(
+            self, "🔊 Sound On",
+            fill=COLORS["CARD"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
+            fg=COLORS["TEXT"], padx=16, pady=10, radius=16,
+            command=(lambda: self._on_sound_toggle() if self._on_sound_toggle else None)
+        ); self.sound_btn.pack(side="right", padx=10)
 
     def enable(self, is_today: bool):
         self.atone_btn.enable(is_today)
@@ -62,3 +71,7 @@ class ActionsBar(tk.Frame):
         label = "Contracts" if n <= 0 else f"Contracts ({n})"
         self.contracts_btn.set_text(label)
         self._badge.config(text=("• New offers" if n > 0 else ""))
+
+    # update sound button label from app
+    def set_sound_state(self, enabled: bool):
+        self.sound_btn.set_text("🔊 Sound On" if enabled else "🔇 Muted")

@@ -4,6 +4,13 @@
 
 import os, threading, platform, subprocess
 
+_MUTED = False
+
+def set_muted(flag: bool):
+    """Master mute for all sound effects."""
+    global _MUTED
+    _MUTED = bool(flag)
+
 SFX_FILES = {
     "click":     "click.mp3",
     "levelUp":   "levelUp.mp3",
@@ -47,6 +54,8 @@ def init():
         _backend = "playsound"
 
 def play_sfx(name: str):
+    if _MUTED:
+        return
     """Play a short effect asynchronously. Silently no-ops if unavailable."""
     fp = _file_path(name)
     if not fp:
