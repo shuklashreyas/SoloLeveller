@@ -13,6 +13,17 @@ def get_connection():
 def initialize_db():
     conn = get_connection()
     cur = conn.cursor()
+    
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS nonnegotiables (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          date_for   TEXT NOT NULL,                         -- YYYY-MM-DD the tasks are for
+          text       TEXT NOT NULL,
+          completed  INTEGER NOT NULL DEFAULT 0,            -- 0/1
+          created_ts TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+        );
+    """)
+
 
     # Core tables
     cur.execute("""
@@ -524,4 +535,33 @@ def generate_daily_contracts_if_needed():
     """, new_offers)
     conn.commit(); conn.close()
     set_meta("offers_day", today)
+    
+    # -------- nonnegotiables (Logger) --------
+def add_nn_task(date_for: str, text: str):
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("INSERT INTO nonnegotiables(date_for, text, completed) VALUES(?,?,0)", (date_for, text.strip()))
+    conn.commit(); conn.close()
+
+def get_nn_tasks(date_for: str):
+    conn = get_connection(); conn.row_factory = sqlite3.Row; cur = conn.cursor()
+    cur.execute("SELECT id, date_for, text, completed FROM nonnegotiables WHERE date_for=? ORDER BY id ASC", (date_for,))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close(); return rows
+
+def set_nn_completed(task_id: int, completed: bool):
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("UPDATE nonnegotiables SET completed=? WHERE id=?", (1 if completed else 0, int(task_id)))
+    conn.commit(); conn.close()
+
+def delete_nn_task(task_id: int):
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("DELETE FROM nonnegotiables WHERE id=?", (int(task_id),))
+    conn.commit(); conn.close()
+
+def nn_result_applied(date_for: str) -> bool:
+    return (get_meta(f"nn_applied:{date_for}") is not None)
+
+def set_nn_result_applied(date_for: str, xp_delta: int):
+    set_meta(f"nn_applied:{date_for}", str(int(xp_delta)))
+
 

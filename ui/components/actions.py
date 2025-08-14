@@ -4,7 +4,8 @@ from constants import COLORS, FONTS
 from widgets import RoundButton
 
 class ActionsBar(tk.Frame):
-    def __init__(self, master, on_atone, on_sin, on_theme, on_contracts, on_faq=None, on_sound_toggle=None):
+    def __init__(self, master, on_atone, on_sin, on_theme, on_contracts,
+                 on_faq=None, on_sound_toggle=None, on_logger=None):
         super().__init__(master, bg=COLORS["BG"])
 
         self.atone_btn = RoundButton(
@@ -21,7 +22,18 @@ class ActionsBar(tk.Frame):
             command=on_sin
         ); self.sin_btn.pack(side="left", padx=10)
 
-        # Make Contracts pop (accent color + subtle larger padding)
+        # Logger (non-negotiables)
+        if on_logger:
+            self.logger_btn = RoundButton(
+                self, "Logger",
+                fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+                fg=COLORS["WHITE"], padx=20, pady=12, radius=18,
+                command=on_logger
+            ); self.logger_btn.pack(side="left", padx=14)
+        else:
+            self.logger_btn = None
+
+        # Contracts pops visually
         self.contracts_btn = RoundButton(
             self, "Contracts",
             fill=COLORS["ACCENT"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
@@ -29,7 +41,7 @@ class ActionsBar(tk.Frame):
             command=on_contracts
         ); self.contracts_btn.pack(side="left", padx=16)
 
-        # Tiny badge label (hidden when 0)
+        # Tiny badge near Contracts (hidden when 0)
         self._badge = tk.Label(self, text="", font=FONTS["small"],
                                bg=COLORS["BG"], fg=COLORS["PRIMARY"])
         self._badge.pack(side="left")
@@ -49,29 +61,35 @@ class ActionsBar(tk.Frame):
                 command=on_faq
             ); self.faq_btn.pack(side="left", padx=10)
 
-        # Flexible spacer pushes the sound toggle to the far right
-        tk.Frame(self, bg=COLORS["BG"]).pack(side="left", expand=True, fill="x")
+        # Right-aligned controls
+        spacer = tk.Label(self, text="", bg=COLORS["BG"]); spacer.pack(side="right", expand=True)
 
-        # --- Sound toggle (right-aligned) ---
-        self._on_sound_toggle = on_sound_toggle
-        self.sound_btn = RoundButton(
-            self, "🔊 Sound On",
-            fill=COLORS["CARD"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
-            fg=COLORS["TEXT"], padx=16, pady=10, radius=16,
-            command=(lambda: self._on_sound_toggle() if self._on_sound_toggle else None)
-        ); self.sound_btn.pack(side="right", padx=10)
+        # Optional sound toggle
+        self._sound_state = True
+        if on_sound_toggle:
+            self.sound_btn = RoundButton(
+                self, "Sound: ON",
+                fill=COLORS["CARD"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+                fg=COLORS["TEXT"], padx=14, pady=10, radius=14,
+                command=on_sound_toggle
+            ); self.sound_btn.pack(side="right", padx=8)
+        else:
+            self.sound_btn = None
 
     def enable(self, is_today: bool):
         self.atone_btn.enable(is_today)
         self.sin_btn.enable(is_today)
+        # Logger can be used any time (planning for tomorrow & checking today)
 
-    # show "Contracts (n)" and a little badge if there are fresh offers
+    # Contracts badge text like: Contracts (n) + a small dot hint
     def set_contracts_badge(self, n: int):
         n = int(n)
         label = "Contracts" if n <= 0 else f"Contracts ({n})"
         self.contracts_btn.set_text(label)
         self._badge.config(text=("• New offers" if n > 0 else ""))
 
-    # update sound button label from app
+    # Reflect mute state
     def set_sound_state(self, enabled: bool):
-        self.sound_btn.set_text("🔊 Sound On" if enabled else "🔇 Muted")
+        self._sound_state = bool(enabled)
+        if self.sound_btn:
+            self.sound_btn.set_text("Sound: ON" if enabled else "Sound: OFF")

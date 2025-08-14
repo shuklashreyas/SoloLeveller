@@ -6,6 +6,8 @@ from .leveling import update_daily_emas_if_needed
 from tkinter import ttk, messagebox
 from datetime import date, timedelta
 import random
+from .parts_logger import open_logger as _open_logger
+
 
 from sound import play_sfx, init as init_sound, set_muted
 from bgm import init_bgm, start_bgm_shuffle, stop_bgm
@@ -210,14 +212,15 @@ class HabitTrackerApp:
 
         try:
             self.actions = ActionsBar(
-                self.root,
-                on_atone=self.open_atone_dialog,
-                on_sin=self.open_sin_dialog,
-                on_theme=self.open_theme_picker,
-                on_contracts=self.open_contracts,
-                on_faq=None,
-                on_sound_toggle=self.toggle_sound,
-            )
+            self.root,
+            on_atone=self.open_atone_dialog,
+            on_sin=self.open_sin_dialog,
+            on_theme=self.open_theme_picker,
+            on_contracts=self.open_contracts,
+            on_faq=None,
+            on_sound_toggle=self.toggle_sound,
+            on_logger=self.open_logger,   # <-- NEW
+        )
         except TypeError:
             self.actions = ActionsBar(
                 self.root,
@@ -367,6 +370,9 @@ class HabitTrackerApp:
         self.refresh_all()
 
     # ---------- Delegates to split parts ----------
+    def open_logger(self):
+        return _open_logger(self)
+    
     def save_journal(self, text: str):
         return _save_journal(self, text)
 
