@@ -2,12 +2,12 @@
 # Orchestrates the UI + runs BaselineQuiz BEFORE any other UI loads
 
 import tkinter as tk
-from .leveling import update_daily_emas_if_needed
 from tkinter import ttk, messagebox
 from datetime import date, timedelta
 import random
-from .parts_logger import open_logger as _open_logger
 
+from .leveling import update_daily_emas_if_needed
+from .parts_logger import open_logger as _open_logger
 
 from sound import play_sfx, init as init_sound, set_muted
 from bgm import init_bgm, start_bgm_shuffle, stop_bgm
@@ -48,7 +48,11 @@ from ..components.actions import ActionsBar
 from ..components.dailydouble import DailyDoublePanel
 
 # Split-out handlers
-from .parts_actions import save_journal as _save_journal, open_atone_dialog as _open_atone_dialog, open_sin_dialog as _open_sin_dialog
+from .parts_actions import (
+    save_journal as _save_journal,
+    open_atone_dialog as _open_atone_dialog,
+    open_sin_dialog as _open_sin_dialog,
+)
 from .parts_contracts import open_contracts as _open_contracts
 
 
@@ -80,7 +84,7 @@ class HabitTrackerApp:
             pass
         self._apply_styles(style)
 
-            # ======== RUN BASELINE QUIZ FIRST (no withdraw) ========
+        # ======== RUN BASELINE QUIZ FIRST (no withdraw) ========
         needs_quiz = (get_meta("quiz_done") != "1")
 
         # Make sure the main window is visible
@@ -109,23 +113,13 @@ class HabitTrackerApp:
                 set_meta("start_day", start_iso)
             self.first_day = date.fromisoformat(start_iso)
 
-        # =========================================
-        # --- Ensure we always have a first_day, even if quiz already done ---
-        if needs_quiz:
-            # you already have this part that sets start_day and self.first_day
+        # Ensure we always have a first_day, even if quiz already done
+        if not needs_quiz:
             start_iso = get_meta("start_day")
             if not start_iso:
                 start_iso = date.today().isoformat()
                 set_meta("start_day", start_iso)
             self.first_day = date.fromisoformat(start_iso)
-        else:
-            # Quiz already completed earlier → load or create start_day now
-            start_iso = get_meta("start_day")
-            if not start_iso:
-                start_iso = date.today().isoformat()
-                set_meta("start_day", start_iso)
-            self.first_day = date.fromisoformat(start_iso)
-
 
         self.current_date = date.today()
         self.prev_stat_values = {t: STAT_MIN for t in POSITIVE_TRAITS}
@@ -151,7 +145,7 @@ class HabitTrackerApp:
             self.actions.set_sound_state(self.sound_enabled)
         except Exception:
             pass
-    
+
     def _clamp_to_allowed_range(self, d: date) -> date:
         today = date.today()
         if d < self.first_day:
@@ -165,7 +159,6 @@ class HabitTrackerApp:
         try:
             prev_ok = self.current_date > self.first_day
             next_ok = self.current_date < date.today()
-            # Try common APIs your TopBar might have:
             if hasattr(self.topbar, "set_nav_enabled"):
                 self.topbar.set_nav_enabled(prev_ok, next_ok)
             else:
@@ -175,7 +168,6 @@ class HabitTrackerApp:
                     self.topbar.set_next_enabled(next_ok)
         except Exception:
             pass
-
 
     # ---------- Build ----------
     def _build_ui(self):
@@ -212,15 +204,16 @@ class HabitTrackerApp:
 
         try:
             self.actions = ActionsBar(
-            self.root,
-            on_atone=self.open_atone_dialog,
-            on_sin=self.open_sin_dialog,
-            on_theme=self.open_theme_picker,
-            on_contracts=self.open_contracts,
-            on_faq=None,
-            on_sound_toggle=self.toggle_sound,
-            on_logger=self.open_logger,   # <-- NEW
-        )
+                self.root,
+                on_atone=self.open_atone_dialog,
+                on_sin=self.open_sin_dialog,
+                on_theme=self.open_theme_picker,
+                on_contracts=self.open_contracts,
+                on_faq=None,
+                on_sound_toggle=self.toggle_sound,
+                on_today=self.go_to_today,                   # NEW
+                on_random_challenge=self.open_random_challenge,  # NEW
+            )
         except TypeError:
             self.actions = ActionsBar(
                 self.root,
@@ -262,7 +255,6 @@ class HabitTrackerApp:
 
     # ---------- Refresh ----------
     def refresh_all(self, first=False):
-        
         self.current_date = self._clamp_to_allowed_range(self.current_date)
         is_today = (self.current_date == date.today())
         self.topbar.set_date(self.current_date, is_today)
@@ -277,14 +269,7 @@ class HabitTrackerApp:
         except Exception:
             pass
 
-        # Baselines → stats overlay (now uses updated attributes.baseline)
-        try:
-            from database import get_baselines
-            self.stats.set_baselines(get_baselines())
-        except Exception:
-            pass
-
-        
+        # Baselines overlay
         try:
             self.stats.set_baselines(get_baselines())
         except Exception:
@@ -369,10 +354,192 @@ class HabitTrackerApp:
         self.current_date += timedelta(days=1)
         self.refresh_all()
 
+    # --- TODAY JUMP ---
+    def go_to_today(self):
+        self.current_date = date.today()
+        self.refresh_all()
+
+    # --- RANDOM CHALLENGE ---
+    def open_random_challenge(self):
+        # Only for today
+        if self.current_date != date.today():
+            messagebox.showinfo("Random Challenge", "You can only start a challenge on today's page.")
+            return
+
+        # (title, trait, minutes, reward_pts, penalty_pts)
+        pool = [
+            ("Do 45 pushups",                 "Physical", 30, 3, 2),
+            ("Go for a 1-hour walk",          "Physical", 60, 3, 2),
+            ("30 min deep work (no phone)",   "Mindful", 30, 3, 2),
+            ("20 min meditation + journal",   "Spiritual", 30, 3, 2),
+            ("Read 20 pages",                 "Intellect", 40, 3, 2),
+            ("Call someone you care about",   "Social", 10, 2, 1),
+            ("Complete a nagging chore",      "Integrity", 25, 3, 2),
+        ]
+        title, trait, minutes, reward_pts, penalty_pts = random.choice(pool)
+
+        # Daily Double multiplier (if today's atone matches)
+        try:
+            dd = get_daily_double(date.today().isoformat())
+        except Exception:
+            dd = None
+        mult = 2 if dd and dd.get("atone") == trait else 1
+        reward_pts_eff = reward_pts * mult
+        penalty_pts_eff = penalty_pts * mult
+
+        win = tk.Toplevel(self.root)
+        win.title("Random Challenge")
+        win.configure(bg=COLORS["BG"])
+        win.geometry("420x260")
+        win.grab_set()
+        try:
+            win.transient(self.root)
+        except Exception:
+            pass
+
+        tk.Label(win, text="Random Challenge", font=FONTS["h2"], bg=COLORS["BG"], fg=COLORS["TEXT"])\
+            .pack(pady=(12, 8))
+        tk.Label(win, text=title, font=FONTS["h3"], bg=COLORS["BG"], fg=COLORS["TEXT"])\
+            .pack(pady=(0, 6))
+        tk.Label(win, text=f"Trait: {trait}  •  Duration: {minutes} min", font=FONTS["small"],
+                 bg=COLORS["BG"], fg=COLORS["MUTED"]).pack(pady=(0, 8))
+
+        timer_lbl = tk.Label(win, text=f"{minutes:02d}:00", font=("Helvetica", 18, "bold"),
+                             bg=COLORS["BG"], fg=COLORS["PRIMARY"])
+        timer_lbl.pack(pady=(4, 10))
+
+        btn_row = tk.Frame(win, bg=COLORS["BG"]); btn_row.pack(pady=8)
+
+        # State for countdown
+        seconds_left = minutes * 60
+        ticking_id = {"id": None}
+        running = {"started": False, "finished": False}
+
+        def fmt(sec):
+            m, s = divmod(max(0, sec), 60)
+            return f"{int(m):02d}:{int(s):02d}"
+
+        def stop_timer():
+            _id = ticking_id["id"]
+            if _id is not None:
+                try:
+                    win.after_cancel(_id)
+                except Exception:
+                    pass
+                ticking_id["id"] = None
+
+        def tick():
+            if running["finished"]:
+                return
+            nonlocal seconds_left
+            seconds_left -= 1
+            timer_lbl.config(text=fmt(seconds_left))
+            if seconds_left <= 0:
+                # Auto-fail
+                return on_fail(auto=True)
+            ticking_id["id"] = win.after(1000, tick)
+
+        def on_accept():
+            if running["started"]:
+                return
+            running["started"] = True
+            # Swap buttons to Complete / Give Up
+            for w in btn_row.winfo_children():
+                w.destroy()
+            RoundButton(btn_row, "Complete",
+                        fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+                        fg=COLORS["WHITE"], padx=16, pady=10, radius=14, command=on_complete).pack(side="left", padx=8)
+            RoundButton(btn_row, "Give Up",
+                        fill=COLORS["ACCENT"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
+                        fg=COLORS["WHITE"], padx=16, pady=10, radius=14, command=on_fail).pack(side="left", padx=8)
+            # Start countdown
+            timer_lbl.config(text=fmt(seconds_left))
+            ticking_id["id"] = win.after(1000, tick)
+
+        def on_decline():
+            stop_timer()
+            win.destroy()
+
+        def on_complete():
+            if running["finished"]:
+                return
+            running["finished"] = True
+            stop_timer()
+
+            # Record success as an ATONE on the mapped trait
+            today_iso = date.today().isoformat()
+            try:
+                insert_entry(today_iso, "ATONE", trait, f"Challenge: {title}", reward_pts_eff)
+                update_attribute_score(trait, reward_pts_eff)
+            except Exception:
+                pass
+
+            # XP
+            try:
+                before = level_from_xp(get_total_xp())
+                after_total = add_total_xp(reward_pts_eff * 10)
+                after = level_from_xp(after_total)
+                if after > before:
+                    try: play_sfx("levelUp")
+                    except Exception: pass
+            except Exception:
+                pass
+
+            # SFX positive
+            try: play_sfx("statsUp")
+            except Exception: pass
+
+            self.refresh_all()
+            messagebox.showinfo("Challenge", "Completed! Nice work.")
+            win.destroy()
+
+        def on_fail(auto: bool = False):
+            if running["finished"]:
+                return
+            running["finished"] = True
+            stop_timer()
+
+            today_iso = date.today().isoformat()
+            try:
+                # Log as a fail; decrement same trait to keep it intuitive
+                insert_entry(today_iso, "SIN", f"Challenge fail ({trait})", f"Failed: {title}", -penalty_pts_eff)
+                update_attribute_score(trait, -penalty_pts_eff)
+            except Exception:
+                pass
+
+            # XP penalty
+            try:
+                add_total_xp(-penalty_pts_eff * 10)
+            except Exception:
+                pass
+
+            # SFX negative
+            try: play_sfx("statsDown")
+            except Exception: pass
+
+            self.refresh_all()
+            message = "Time's up — challenge failed." if auto else "Challenge failed."
+            messagebox.showinfo("Challenge", message)
+            win.destroy()
+
+        # Initial buttons (Accept / Decline)
+        RoundButton(btn_row, "Accept",
+                    fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+                    fg=COLORS["WHITE"], padx=16, pady=10, radius=14, command=on_accept).pack(side="left", padx=8)
+        RoundButton(btn_row, "Decline",
+                    fill=COLORS["CARD"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
+                    fg=COLORS["TEXT"], padx=16, pady=10, radius=14, command=on_decline).pack(side="left", padx=8)
+
+        # Clean up timer if window is closed
+        def _on_close():
+            stop_timer()
+            win.destroy()
+        win.protocol("WM_DELETE_WINDOW", _on_close)
+
     # ---------- Delegates to split parts ----------
     def open_logger(self):
         return _open_logger(self)
-    
+
     def save_journal(self, text: str):
         return _save_journal(self, text)
 
