@@ -98,7 +98,31 @@ class HabitTrackerApp:
 
             # Block until quiz closes
             self.root.wait_window(q)
+            # --- Establish the earliest day the user can view ---
+            start_iso = get_meta("start_day")
+            if not start_iso:
+                # Use *today* as the start day the moment the quiz completes
+                start_iso = date.today().isoformat()
+                set_meta("start_day", start_iso)
+            self.first_day = date.fromisoformat(start_iso)
+
         # =========================================
+        # --- Ensure we always have a first_day, even if quiz already done ---
+        if needs_quiz:
+            # you already have this part that sets start_day and self.first_day
+            start_iso = get_meta("start_day")
+            if not start_iso:
+                start_iso = date.today().isoformat()
+                set_meta("start_day", start_iso)
+            self.first_day = date.fromisoformat(start_iso)
+        else:
+            # Quiz already completed earlier → load or create start_day now
+            start_iso = get_meta("start_day")
+            if not start_iso:
+                start_iso = date.today().isoformat()
+                set_meta("start_day", start_iso)
+            self.first_day = date.fromisoformat(start_iso)
+
 
         self.current_date = date.today()
         self.prev_stat_values = {t: STAT_MIN for t in POSITIVE_TRAITS}
@@ -124,6 +148,31 @@ class HabitTrackerApp:
             self.actions.set_sound_state(self.sound_enabled)
         except Exception:
             pass
+    
+    def _clamp_to_allowed_range(self, d: date) -> date:
+        today = date.today()
+        if d < self.first_day:
+            return self.first_day
+        if d > today:
+            return today
+        return d
+
+    def _update_nav_buttons(self):
+        """If TopBar supports it, reflect the allowed range in button state."""
+        try:
+            prev_ok = self.current_date > self.first_day
+            next_ok = self.current_date < date.today()
+            # Try common APIs your TopBar might have:
+            if hasattr(self.topbar, "set_nav_enabled"):
+                self.topbar.set_nav_enabled(prev_ok, next_ok)
+            else:
+                if hasattr(self.topbar, "set_prev_enabled"):
+                    self.topbar.set_prev_enabled(prev_ok)
+                if hasattr(self.topbar, "set_next_enabled"):
+                    self.topbar.set_next_enabled(next_ok)
+        except Exception:
+            pass
+
 
     # ---------- Build ----------
     def _build_ui(self):
@@ -209,8 +258,11 @@ class HabitTrackerApp:
 
     # ---------- Refresh ----------
     def refresh_all(self, first=False):
+        
+        self.current_date = self._clamp_to_allowed_range(self.current_date)
         is_today = (self.current_date == date.today())
         self.topbar.set_date(self.current_date, is_today)
+        self._update_nav_buttons()
 
         if is_today:
             self._ensure_offers_today()
@@ -288,10 +340,14 @@ class HabitTrackerApp:
 
     # ---------- Nav ----------
     def go_prev_day(self):
+        if self.current_date <= self.first_day:
+            return
         self.current_date -= timedelta(days=1)
         self.refresh_all()
 
     def go_next_day(self):
+        if self.current_date >= date.today():
+            return
         self.current_date += timedelta(days=1)
         self.refresh_all()
 
