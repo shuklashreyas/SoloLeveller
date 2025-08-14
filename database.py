@@ -69,6 +69,26 @@ def initialize_db():
           penalty_applied INTEGER NOT NULL DEFAULT 0
         );
     """)
+    
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS contract_offers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        expires_at TEXT NOT NULL,       -- ISO datetime (localtime)
+        duration_days INTEGER NOT NULL DEFAULT 1,
+        penalty_xp INTEGER NOT NULL DEFAULT 100,
+        claimed INTEGER NOT NULL DEFAULT 0
+        );
+    """)
+    
+    # Add is_personal flag if it doesn't exist yet
+    try:
+        cur.execute("ALTER TABLE contracts ADD COLUMN is_personal INTEGER NOT NULL DEFAULT 0;")
+    except sqlite3.OperationalError:
+        pass  # column already exists
+
+
+
 
     # Lightweight migration: add expires_at for hour-limited pacts if missing
     try:
@@ -201,19 +221,13 @@ def set_daily_double(day_iso: str, atone_category: str, sin_category: str):
     conn.commit()
     conn.close()
 
-# -------- contracts --------
 def get_active_contracts(day_iso: str):
-    """
-    Return active contracts on a given day. A contract is active if:
-      - active=1 AND broken=0, AND
-      - (expires_at is NULL AND day_iso between start_date and end_date), OR
-      - (expires_at is not NULL AND now <= expires_at)
-    """
+    deactivate_expired_and_broken()
     conn = get_connection()
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute("""
-        SELECT id,title,start_date,end_date,penalty_xp,active,broken,penalty_applied,expires_at
+        SELECT id,title,start_date,end_date,penalty_xp,active,broken,penalty_applied,expires_at,is_personal
         FROM contracts
         WHERE active=1 AND broken=0 AND (
             (expires_at IS NULL AND date(?) BETWEEN date(start_date) AND date(end_date))
@@ -224,6 +238,7 @@ def get_active_contracts(day_iso: str):
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
     return rows
+
 
 def create_contract(title: str, penalty_xp: int, start_iso: str, end_iso: str):
     conn = get_connection()
@@ -259,6 +274,45 @@ def mark_contract_penalty_applied(cid: int):
     cur.execute("UPDATE contracts SET penalty_applied=1 WHERE id=?", (cid,))
     conn.commit()
     conn.close()
+    
+from datetime import datetime as _dt
+
+def deactivate_expired_and_broken():
+    """
+    Marks contracts inactive when they shouldn't count anymore:
+      - broken=1
+      - expired by hours (expires_at < now)
+      - past end_date (for day-based)
+    Returns total rows updated.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    total = 0
+    # Broken → inactive
+    cur.execute("UPDATE contracts SET active=0 WHERE broken=1 AND active=1")
+    total += cur.rowcount
+    # Hour-limited expired → inactive
+    cur.execute("""
+        UPDATE contracts
+        SET active=0
+        WHERE active=1
+          AND expires_at IS NOT NULL
+          AND datetime(expires_at) < datetime('now','localtime')
+    """)
+    total += cur.rowcount
+    # Day-based past end → inactive
+    cur.execute("""
+        UPDATE contracts
+        SET active=0
+        WHERE active=1
+          AND expires_at IS NULL
+          AND date('now','localtime') > date(end_date)
+    """)
+    total += cur.rowcount
+    conn.commit()
+    conn.close()
+    return total
+
 
 def generate_daily_contracts_if_needed():
     """
@@ -331,3 +385,143 @@ def get_baselines():
             out[k.split("baseline:", 1)[1]] = int(v)
     conn.close()
     return out
+
+from datetime import datetime, timedelta as _td
+
+# ---- counts & filters ----
+def get_active_contracts_count() -> int:
+    deactivate_expired_and_broken()
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM contracts
+        WHERE active=1 AND broken=0 AND (
+            (expires_at IS NULL AND date('now','localtime') BETWEEN date(start_date) AND date(end_date))
+            OR (expires_at IS NOT NULL AND datetime('now','localtime') <= datetime(expires_at))
+        )
+    """)
+    n = int(cur.fetchone()[0])
+    conn.close()
+    return n
+
+
+def get_personal_active_count() -> int:
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("""
+        SELECT COUNT(*) FROM contracts
+        WHERE active=1 AND broken=0 AND is_personal=1 AND (
+            (expires_at IS NULL AND date('now','localtime') BETWEEN date(start_date) AND date(end_date))
+            OR (expires_at IS NOT NULL AND datetime('now','localtime') <= datetime(expires_at))
+        )
+    """)
+    n = int(cur.fetchone()[0]); conn.close(); return n
+
+# ---- personal contract creation with limits ----
+def create_personal_contract_limited(title: str, days: int, penalty_xp: int = 200):
+    deactivate_expired_and_broken()
+    days = max(1, min(7, int(days)))  # 1..7
+    if get_personal_active_count() >= 1:
+        raise ValueError("You already have an active personal contract.")
+    if get_active_contracts_count() >= 3:
+        raise ValueError("You already have 3 active contracts.")
+
+    today = date.today()
+    start_iso = today.isoformat()
+    end_iso = (today + _td(days=days - 1)).isoformat()
+
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO contracts(title,start_date,end_date,penalty_xp,active,broken,penalty_applied,is_personal)
+        VALUES (?,?,?,?,1,0,0,1)
+    """, (title, start_iso, end_iso, int(penalty_xp)))
+    conn.commit(); conn.close()
+
+# ---- offers (available contracts) ----
+def _now_local_iso():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def get_available_contracts(now_iso: str | None = None):
+    if now_iso is None: now_iso = _now_local_iso()
+    conn = get_connection(); conn.row_factory = sqlite3.Row; cur = conn.cursor()
+    cur.execute("""
+        SELECT id,title,expires_at,duration_days,penalty_xp
+        FROM contract_offers
+        WHERE claimed=0 AND datetime(expires_at) > datetime(?)
+        ORDER BY expires_at ASC
+    """, (now_iso,))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close(); return rows
+
+def get_available_offers_count(now_iso: str | None = None) -> int:
+    return len(get_available_contracts(now_iso))
+
+def claim_contract_offer(offer_id: int):
+    deactivate_expired_and_broken()
+    # limits: max 3 active total
+    if get_active_contracts_count() >= 3:
+        raise ValueError("You already have 3 active contracts.")
+    # claim
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("""
+        SELECT title, duration_days, penalty_xp, expires_at, claimed
+        FROM contract_offers WHERE id=?
+    """, (offer_id,))
+    row = cur.fetchone()
+    if not row: conn.close(); raise ValueError("Offer not found.")
+    title, duration_days, penalty_xp, expires_at, claimed = row
+    # expired or already claimed?
+    cur.execute("SELECT datetime(?) <= datetime('now','localtime')", (expires_at,))
+    expired = cur.fetchone()[0] == 1
+    if expired or claimed:
+        conn.close(); raise ValueError("Offer expired or already claimed.")
+
+    start = date.today()
+    end = start + _td(days=int(duration_days) - 1)
+    cur.execute("""
+        INSERT INTO contracts(title,start_date,end_date,penalty_xp,active,broken,penalty_applied,is_personal)
+        VALUES (?,?,?,?,1,0,0,0)
+    """, (title, start.isoformat(), end.isoformat(), int(penalty_xp)))
+    cur.execute("UPDATE contract_offers SET claimed=1 WHERE id=?", (offer_id,))
+    conn.commit(); conn.close()
+
+# ---- daily generator ----
+def generate_daily_contracts_if_needed():
+    # Only seed once per day
+    last = get_meta("offers_day")
+    today = date.today().isoformat()
+    if last == today:
+        return
+    # clear out expired offers (housekeeping)
+    conn = get_connection(); cur = conn.cursor()
+    cur.execute("DELETE FROM contract_offers WHERE datetime(expires_at) <= datetime('now','localtime') OR claimed=1")
+    conn.commit()
+
+    # A few themed templates (tweak to taste)
+    templates = [
+        ("No social media after 9PM", 3, 150),
+        ("Wake up by 7:00 AM", 3, 150),
+        ("Journal + meditate 1 hour today", 1, 120),
+        ("Three 25-min focus blocks", 1, 120),
+        ("10k steps per day", 3, 150),
+        ("Protein with every meal", 2, 120),
+        ("No sugar drinks", 2, 120),
+    ]
+
+    import random, math
+    now = datetime.now()
+    new_offers = []
+    # 3 fresh offers/day; each expires within 6–24h from now
+    for _ in range(3):
+        title, dur_days, penalty = random.choice(templates)
+        expire_hours = random.randint(6, 24)
+        expires_at = (now + _td(hours=expire_hours)).strftime("%Y-%m-%d %H:%M:%S")
+        new_offers.append((title, expires_at, dur_days, penalty))
+
+    cur.executemany("""
+        INSERT INTO contract_offers(title,expires_at,duration_days,penalty_xp,claimed)
+        VALUES (?,?,?,?,0)
+    """, new_offers)
+    conn.commit(); conn.close()
+    set_meta("offers_day", today)
+

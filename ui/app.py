@@ -1,4 +1,5 @@
 # Orchestrates the UI by composing small components + Theme switcher + SFX + BGM shuffle
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date, timedelta
@@ -21,17 +22,24 @@ from database import (
     get_meta, set_meta,
     get_attributes, update_attribute_score,
     insert_entry, get_entries_by_date, get_journal, upsert_journal,
-    # new features
     set_daily_double, get_daily_double, get_active_contracts,
-    create_contract, mark_contract_broken, mark_contract_penalty_applied,
+    create_personal_contract_limited,  # personal with limits
     get_baselines,
+    # Offers / limits
+    get_available_contracts, claim_contract_offer,
+    get_active_contracts_count, get_personal_active_count, get_available_offers_count,
+    # Daily offers seeder
+    generate_daily_contracts_if_needed,
+    # For penalties
+    mark_contract_broken, mark_contract_penalty_applied,
 )
+
 from prompts import get_prompt_for_date
 from exp_system import (
     xp_to_next, level_from_xp, xp_in_level,
     get_total_xp, add_total_xp, average_stat, compute_rank
 )
-from animations import animate_intvar, flash_widget
+from animations import flash_widget
 from widgets import RoundButton
 from quiz import BaselineQuiz
 
@@ -42,7 +50,7 @@ from .components.stats import StatsPanel
 from .components.journal import JournalPanel
 from .components.logs import LogsPanel
 from .components.actions import ActionsBar
-from .components.dailydouble import DailyDoublePanel   # NEW
+from .components.dailydouble import DailyDoublePanel
 from .dialogs import ask_action  # returns (category, item_text, pts) or None
 
 
@@ -119,7 +127,7 @@ class HabitTrackerApp:
         self.journal = JournalPanel(left, on_save=self.save_journal)
         self.journal.pack(side="top", fill="both", expand=True, padx=4, pady=(0, 4))
 
-        # NEW: Daily Double panel under Journal
+        # Daily Double panel under Journal
         self.dd_panel = DailyDoublePanel(left)
         self.dd_panel.pack(side="top", fill="x", padx=4, pady=(0, 8))
 
@@ -130,17 +138,16 @@ class HabitTrackerApp:
         self.logs = LogsPanel(right)
         self.logs.pack(fill="both", expand=True, padx=4, pady=0)
 
-        # Bottom actions (Theme button; Contracts if supported by your ActionsBar)
+        # Bottom actions (Theme + Contracts)
         try:
             self.actions = ActionsBar(
                 self.root,
                 on_atone=self.open_atone_dialog,
                 on_sin=self.open_sin_dialog,
                 on_theme=self.open_theme_picker,
-                on_contracts=self.open_contracts,   # works if your ActionsBar supports it
+                on_contracts=self.open_contracts,   # if supported
             )
         except TypeError:
-            # fallback for older ActionsBar signature
             self.actions = ActionsBar(
                 self.root,
                 on_atone=self.open_atone_dialog,
@@ -162,15 +169,34 @@ class HabitTrackerApp:
         style.configure("XP.Horizontal.TProgressbar",
                         troughcolor=COLORS["CARD"],
                         background=COLORS["PRIMARY"])
+        # Theme-aware neutral trough color
         style.configure("Stat.Horizontal.TProgressbar",
-                        troughcolor="#D4D4D8",
+                        troughcolor=COLORS.get("TRACK", "#D4D4D8"),
                         background=COLORS["ACCENT"])
+
+    # ---------- Internal helpers ----------
+    def _ensure_offers_today(self, min_count: int = 3):
+        """Guarantee daily offers exist; resets stale flag if needed."""
+        try:
+            if generate_daily_contracts_if_needed:
+                generate_daily_contracts_if_needed()
+            if get_available_offers_count() < min_count:
+                set_meta("offers_day", "")
+                if generate_daily_contracts_if_needed:
+                    generate_daily_contracts_if_needed()
+        except Exception:
+            # Don't block UI if anything goes wrong here
+            pass
 
     # ---------- Refresh ----------
     def refresh_all(self, first=False):
         # Date + today lock
         is_today = (self.current_date == date.today())
         self.topbar.set_date(self.current_date, is_today)
+
+        # Ensure there are time-limited offers today
+        if is_today:
+            self._ensure_offers_today()
 
         # Baselines → stats (for green/red delta overlay)
         try:
@@ -220,6 +246,12 @@ class HabitTrackerApp:
         self.xpstrip.set_level(lvl, in_lvl, need, animate_from=(0 if first else self.prev_xp_in_level))
         self.prev_xp_in_level = in_lvl
 
+        # Update Contracts button badge with # of available offers
+        try:
+            self.actions.set_contracts_badge(get_available_offers_count())
+        except Exception:
+            pass
+
     # ---------- Nav ----------
     def go_prev_day(self):
         self.current_date -= timedelta(days=1)
@@ -235,7 +267,10 @@ class HabitTrackerApp:
             return
         upsert_journal(self.current_date.isoformat(), text.strip())
         self.journal.note_saved()
-        flash_widget(self.journal.status_label, times=2, on="#C7F9CC")
+        try:
+            flash_widget(self.journal.status_label, times=2, on="#C7F9CC")
+        except Exception:
+            pass
 
     # ---------- Action dialogs ----------
     def open_atone_dialog(self):
@@ -299,9 +334,11 @@ class HabitTrackerApp:
         if changed_attr is not None and old_val is not None:
             new_val = get_attributes().get(changed_attr, {}).get("score", STAT_MIN)
             if new_val > old_val:
-                play_sfx("statsUp")
+                try: play_sfx("statsUp")
+                except Exception: pass
             elif new_val < old_val:
-                play_sfx("statsDown")
+                try: play_sfx("statsDown")
+                except Exception: pass
 
         # XP + level-up SFX
         before = level_from_xp(get_total_xp())
@@ -309,7 +346,8 @@ class HabitTrackerApp:
         after = level_from_xp(after_total)
         self.refresh_all()
         if after > before:
-            play_sfx("levelUp")
+            try: play_sfx("levelUp")
+            except Exception: pass
             messagebox.showinfo("LEVEL UP!", f"You reached Level {after}!")
 
     # ---------- Theme picker ----------
@@ -365,65 +403,168 @@ class HabitTrackerApp:
     # ---------- Contracts ----------
     def open_contracts(self):
         win = tk.Toplevel(self.root)
-        win.title("Contracts (7-day pacts)")
+        win.title("Contracts")
         win.configure(bg=COLORS["BG"])
-        win.geometry("520x360")
+        win.geometry("720x520")
         win.grab_set()
 
-        tk.Label(win, text="Active Contracts", font=FONTS["h3"], bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(pady=(10,4))
+        nb = ttk.Notebook(win)
+        nb.pack(fill="both", expand=True, padx=10, pady=10)
 
-        frame = tk.Frame(win, bg=COLORS["BG"]); frame.pack(fill="both", expand=True, padx=12, pady=8)
-        listbox = tk.Listbox(frame, height=8)
-        listbox.pack(fill="both", expand=True, side="left")
-        sb = tk.Scrollbar(frame, orient="vertical", command=listbox.yview)
-        sb.pack(side="right", fill="y"); listbox.configure(yscrollcommand=sb.set)
+        # ---------- My Contracts tab ----------
+        tab_my = tk.Frame(nb, bg=COLORS["BG"]); nb.add(tab_my, text="My Contracts")
 
-        def refresh():
-            listbox.delete(0, "end")
-            for c in get_active_contracts(date.today().isoformat()):
-                status = "BROKEN" if c["broken"] else "ACTIVE"
-                listbox.insert("end", f'#{c["id"]} {c["title"]} ({c["start_date"]} → {c["end_date"]}) [{status}] Penalty:{c["penalty_xp"]}')
+        header = tk.Frame(tab_my, bg=COLORS["BG"]); header.pack(fill="x", padx=8, pady=(8, 2))
+        tk.Label(header, text="Active Contracts", font=FONTS["h2"],
+                 bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(side="left")
 
-        refresh()
+        list_my = tk.Frame(tab_my, bg=COLORS["BG"]); list_my.pack(fill="both", expand=True, padx=8, pady=6)
 
-        # Create new contract
-        tk.Label(win, text="Create new (7 days):", bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(anchor="w", padx=12, pady=(8,2))
-        entry = tk.Entry(win); entry.pack(fill="x", padx=12)
+        # Personal creation area (with limits)
+        form = tk.Frame(tab_my, bg=COLORS["CARD"]); form.pack(fill="x", padx=8, pady=(0, 10))
+        tk.Label(form, text="Create personal contract (1–7 days)", font=FONTS["h3"],
+                 bg=COLORS["CARD"], fg=COLORS["TEXT"]).grid(row=0, column=0, columnspan=3, sticky="w", padx=12, pady=(10, 2))
+        title_var = tk.StringVar()
+        tk.Entry(form, textvariable=title_var, width=40).grid(row=1, column=0, padx=(12,8), pady=8, sticky="w")
+        days_var = tk.IntVar(value=3)
+        tk.Label(form, text="Days:", bg=COLORS["CARD"], fg=COLORS["TEXT"]).grid(row=1, column=1, sticky="e")
+        tk.Spinbox(form, from_=1, to=7, width=5, textvariable=days_var).grid(row=1, column=2, padx=(6,12), sticky="w")
 
-        def create():
-            title = entry.get().strip()
-            if not title: return
-            start = date.today()
-            end = start + timedelta(days=6)
-            create_contract(title=title, penalty_xp=200, start_iso=start.isoformat(), end_iso=end.isoformat())
-            entry.delete(0,"end"); refresh()
-
-        RoundButton(win, "Create Pact",
-                    fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
-                    fg=COLORS["WHITE"], padx=14, pady=8, radius=12, command=create).pack(pady=6)
-
-        def break_selected():
-            sel = listbox.curselection()
-            if not sel: return
-            line = listbox.get(sel[0])
+        def create_personal():
             try:
-                cid = int(line.split()[0].lstrip("#"))
-            except Exception:
-                return
-            # apply one-time penalty if not already applied
-            for c in get_active_contracts(date.today().isoformat()):
-                if c["id"] == cid:
-                    mark_contract_broken(cid)
-                    if not c["penalty_applied"]:
-                        add_total_xp(-abs(int(c["penalty_xp"])) * 10)
-                        mark_contract_penalty_applied(cid)
-                    break
-            refresh()
-            self.refresh_all()
+                create_personal_contract_limited(title_var.get().strip(), int(days_var.get()))
+            except ValueError as e:
+                messagebox.showwarning("Cannot create", str(e), parent=win); return
+            title_var.set("")
+            refresh_views()
 
-        RoundButton(win, "Mark Broken (apply penalty once)",
-                    fill=COLORS["ACCENT"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
-                    fg=COLORS["WHITE"], padx=14, pady=8, radius=12, command=break_selected).pack(pady=6)
+        RoundButton(form, "Create",
+                    fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+                    fg=COLORS["WHITE"], padx=14, pady=8, radius=12, command=create_personal)\
+            .grid(row=1, column=3, padx=12, pady=8)
+
+        # ---------- Available tab ----------
+        tab_av = tk.Frame(nb, bg=COLORS["BG"]); nb.add(tab_av, text="Available Today")
+
+        tk.Label(tab_av, text="Time-limited offers (claim before they expire)",
+                 font=FONTS["h2"], bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(anchor="w", padx=8, pady=(8, 2))
+
+        list_av = tk.Frame(tab_av, bg=COLORS["BG"]); list_av.pack(fill="both", expand=True, padx=8, pady=6)
+
+        # ---------- helpers to render cards ----------
+        def clear_children(parent):
+            for w in parent.winfo_children():
+                w.destroy()
+
+        def card(parent, title, subtitle, right_btn=None):
+            c = tk.Frame(parent, bg=COLORS["CARD"], bd=0, highlightthickness=0)
+            c.pack(fill="x", pady=6)
+            left = tk.Frame(c, bg=COLORS["CARD"]); left.pack(side="left", fill="both", expand=True)
+            tk.Label(left, text=title, font=FONTS["h3"], bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(anchor="w", padx=12, pady=(10,0))
+            tk.Label(left, text=subtitle, font=FONTS["small"], bg=COLORS["CARD"], fg=COLORS["MUTED"]).pack(anchor="w", padx=12, pady=(0,10))
+            if right_btn:
+                box = tk.Frame(c, bg=COLORS["CARD"]); box.pack(side="right", padx=12)
+                right_btn(box)
+            return c
+
+        def refresh_my():
+            clear_children(list_my)
+            active = get_active_contracts(date.today().isoformat())
+            if not active:
+                tk.Label(list_my, text="No active contracts.", bg=COLORS["BG"], fg=COLORS["MUTED"]).pack(pady=8)
+                return
+
+            for cdata in active:
+                title = cdata["title"]
+                until = cdata.get("end_date")
+                status = "BROKEN" if cdata.get("broken") else "ACTIVE"
+                subtitle = f"Until {until}  •  Status: {status}  •  Penalty {cdata.get('penalty_xp',100)} XP"
+
+                def make_btns(box, cid=cdata["id"]):
+                    def break_it():
+                        # Re-fetch current active list to avoid stale flags
+                        _active = get_active_contracts(date.today().isoformat())
+                        target = next((c for c in _active if c["id"] == cid), None)
+
+                        if not target:
+                            messagebox.showinfo("Contract", "This contract is already inactive or broken.", parent=win)
+                            refresh_views()
+                            return
+
+                        pen = int(target.get("penalty_xp", 100))
+                        already = int(target.get("penalty_applied", 0)) == 1
+
+                        # Mark broken
+                        mark_contract_broken(cid)
+
+                        if not already:
+                            # Deduct once; same scale as elsewhere (pts*10)
+                            add_total_xp(-abs(pen) * 10)
+                            mark_contract_penalty_applied(cid)
+                            try: play_sfx("statsDown")
+                            except Exception: pass
+
+                        messagebox.showinfo(
+                            "Contract",
+                            ("Penalty applied: -" + str(abs(pen)) + " XP." if not already else "Penalty already applied earlier."),
+                            parent=win
+                        )
+
+                        refresh_views()
+                        self.refresh_all()
+
+                    RoundButton(box, "Mark Broken",
+                                fill=COLORS["ACCENT"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
+                                fg=COLORS["WHITE"], padx=14, pady=8, radius=12, command=break_it).pack(pady=10)
+
+                card(list_my, title, subtitle, right_btn=make_btns)
+
+        def refresh_av():
+            clear_children(list_av)
+            offers = get_available_contracts()
+            full = get_active_contracts_count() >= 3
+            if not offers:
+                tk.Label(list_av, text="No offers right now. Check again tomorrow!",
+                         bg=COLORS["BG"], fg=COLORS["MUTED"]).pack(pady=8)
+                return
+
+            for o in offers:
+                subtitle = f"Expires: {o['expires_at']}  •  Lasts: {o['duration_days']} day(s)  •  Penalty {o['penalty_xp']} XP"
+
+                def make_btns(box, oid=o["id"]):
+                    def claim():
+                        try:
+                            claim_contract_offer(oid)
+                        except ValueError as e:
+                            messagebox.showwarning("Cannot claim", str(e), parent=win); return
+                        refresh_views(); self.refresh_all()
+
+                    RoundButton(
+                        box,
+                        ("Full (3/3)" if full else "Claim"),
+                        fill=(COLORS["MUTED"] if full else COLORS["PRIMARY"]),
+                        hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+                        fg=COLORS["WHITE"],
+                        padx=14, pady=8, radius=12,
+                        command=(None if full else claim),
+                    ).pack(pady=10)
+
+                card(list_av, o["title"], subtitle, right_btn=make_btns)
+
+        def refresh_views():
+            # disable personal creator if limits reached
+            try:
+                if get_personal_active_count() >= 1 or get_active_contracts_count() >= 3:
+                    for child in form.winfo_children():
+                        child.configure(state="disabled")
+                else:
+                    for child in form.winfo_children():
+                        child.configure(state="normal")
+            except Exception:
+                pass
+            refresh_my(); refresh_av()
+
+        refresh_views()
 
     # ---------- Cleanup ----------
     def _on_close(self):
