@@ -29,6 +29,40 @@ PALETTES = {
 
 THEME = "Soft Gamey"  # default; overridden by DB at runtime
 
+# --- Contrast helpers ---
+def _hex_to_rgb(h: str):
+    h = h.lstrip("#")
+    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+def _srgb_to_linear(c):
+    c = c / 255.0
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+def _rel_lum(hex_color: str):
+    r, g, b = _hex_to_rgb(hex_color)
+    R, G, B = map(_srgb_to_linear, (r, g, b))
+    return 0.2126 * R + 0.7152 * G + 0.0722 * B
+
+def _contrast(a_hex: str, b_hex: str):
+    L1, L2 = _rel_lum(a_hex), _rel_lum(b_hex)
+    Lh, Ll = (L1, L2) if L1 > L2 else (L2, L1)
+    return (Lh + 0.05) / (Ll + 0.05)
+
+def _best_fg_on(bg_hex: str):
+    # Pick whatever gives higher contrast on the background.
+    black = "#0B0F19"   # deep slate (nicer than pure black)
+    white = "#FFFFFF"
+    return black if _contrast(bg_hex, black) >= _contrast(bg_hex, white) else white
+
+def _blend_hex(fg_hex: str, bg_hex: str, t: float):
+    # linear blend for a "muted" tone (0..1 toward bg)
+    fr, fgc, fb = _hex_to_rgb(fg_hex); br, bgc, bb = _hex_to_rgb(bg_hex)
+    r = int(fr * (1 - t) + br * t)
+    g = int(fgc * (1 - t) + bgc * t)
+    b = int(fb * (1 - t) + bb * t)
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
 def _derive(base):
     return {
         **base,
@@ -52,14 +86,37 @@ def _apply_semantic_defaults():
 _apply_semantic_defaults()
 
 def set_theme(name: str):
-    """Mutate COLORS in-place and set THEME. Callers should re-style widgets."""
-    global THEME
-    if name not in PALETTES:
+    global COLORS
+    pal = PALETTES.get(name)
+    if not pal:
         return
-    THEME = name
-    COLORS.clear()
-    COLORS.update(_derive(PALETTES[name]))
-    _apply_semantic_defaults()
+
+    # Start with the palette as given
+    COLORS.update(pal)
+
+    # Ensure required keys exist (fallbacks)
+    COLORS.setdefault("BG", "#0F1115")
+    COLORS.setdefault("CARD", "#171A21")
+    COLORS.setdefault("PRIMARY", "#7C3AED")
+    COLORS.setdefault("ACCENT", "#22D3EE")
+    COLORS.setdefault("WHITE", "#FFFFFF")  # keep a true white around
+    COLORS.setdefault("TRACK", "#D4D4D8")  # progressbar trough default
+
+    # --- Auto-choose readable text colors ---
+    # Main text on BG
+    COLORS["TEXT"] = _best_fg_on(COLORS["BG"])
+    # Muted = a blend toward BG for subtle labels (keeps contrast on both light/dark)
+    COLORS["MUTED"] = _blend_hex(COLORS["TEXT"], COLORS["BG"], 0.4)
+
+    # Derive preferred foregrounds for filled buttons/cards if you want to use them
+    COLORS["PRIMARY_TEXT"] = _best_fg_on(COLORS["PRIMARY"])
+    COLORS["ACCENT_TEXT"]  = _best_fg_on(COLORS["ACCENT"])
+    COLORS["CARD_TEXT"]    = _best_fg_on(COLORS["CARD"])
+
+    # Optional: hovers (keep if you already define them; these are safe fallbacks)
+    COLORS.setdefault("PRIMARY_HOVER", COLORS["PRIMARY"])
+    COLORS.setdefault("ACCENT_HOVER", COLORS["ACCENT"])
+
 
 # ---------- Fonts ----------
 FONTS = {

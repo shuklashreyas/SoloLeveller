@@ -5,6 +5,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date, timedelta
 import random
+import calendar
+import csv
+from pathlib import Path
 
 from .leveling import update_daily_emas_if_needed
 from .parts_logger import open_logger as _open_logger
@@ -55,9 +58,8 @@ from .parts_actions import (
 )
 from .parts_contracts import open_contracts as _open_contracts
 
-import csv
-from pathlib import Path
 
+# ---------------- Random challenge pool (CSV optional) ----------------
 CHALLENGE_CSV = Path("data/random_challenges.csv")
 
 def _load_challenge_pool_from_csv():
@@ -107,7 +109,7 @@ class HabitTrackerApp:
             pass
         self._apply_styles(style)
 
-        # ======== RUN BASELINE QUIZ FIRST (no withdraw) ========
+        # ======== RUN BASELINE QUIZ FIRST ========
         needs_quiz = (get_meta("quiz_done") != "1")
 
         # Make sure the main window is visible
@@ -168,9 +170,9 @@ class HabitTrackerApp:
             self.actions.set_sound_state(self.sound_enabled)
         except Exception:
             pass
-        
+
     def _get_challenge_pool(self):
-    # cache so we don’t re-read the file every click
+        # cache so we don’t re-read the file every click
         if not hasattr(self, "_challenge_pool_cache"):
             csv_pool = _load_challenge_pool_from_csv()
             if csv_pool:
@@ -187,7 +189,6 @@ class HabitTrackerApp:
                     ("Complete a nagging chore",    "Integrity",25, 3, 2),
                 ]
         return self._challenge_pool_cache
-
 
     def _clamp_to_allowed_range(self, d: date) -> date:
         today = date.today()
@@ -217,7 +218,8 @@ class HabitTrackerApp:
         self.topbar = TopBar(
             master=self.root,
             on_prev=self.go_prev_day,
-            on_next=self.go_next_day
+            on_next=self.go_next_day,
+            on_calendar=self.open_calendar_popup,   # NEW
         )
         self.topbar.pack(fill="x", pady=(12, 6))
 
@@ -267,16 +269,189 @@ class HabitTrackerApp:
             )
         self.actions.pack(fill="x", pady=10)
 
+    # --- Calendar popup (only clickable on days that have entries) ---
+    def open_calendar_popup(self):
+        import calendar as _cal
+        from datetime import date as _date
+
+        first_day = getattr(self, "first_day", _date.today())
+        today = _date.today()
+
+        # We depend on this DB helper; fall back gracefully if missing.
+        try:
+            from database import get_logged_days_in_range
+        except Exception:
+            def get_logged_days_in_range(a, b):  # pragma: no cover
+                return set()
+
+        # Start from the month currently displayed in the app
+        showing = _date(self.current_date.year, self.current_date.month, 1)
+
+        # ---- Window shell ----
+        win = tk.Toplevel(self.root)
+        win.title("Pick a day")
+        win.configure(bg=COLORS["BG"])
+        win.geometry("380x360")
+        win.grab_set()
+        try:
+            win.transient(self.root)
+        except Exception:
+            pass
+
+        # ---- helpers ----
+        def _month_bounds(d0: _date) -> tuple[_date, _date]:
+            _, ndays = _cal.monthrange(d0.year, d0.month)
+            first = _date(d0.year, d0.month, 1)
+            last  = _date(d0.year, d0.month, ndays)
+            if first < first_day: first = first_day
+            if last > today: last = today
+            return first, last
+
+        def _tile(parent, text, *, enabled=False, on_click=None, is_today=False):
+            """
+            Small bordered tile that looks the same on all platforms.
+            """
+            wrap = tk.Frame(parent, bg=COLORS["BG"])
+            wrap.pack(side="left", padx=3, pady=3)
+
+            border_color = COLORS["CARD"] if not enabled else COLORS["PRIMARY"]
+            brd = tk.Frame(
+                wrap, bg=COLORS["BG"],
+                highlightthickness=1 if enabled else 0,
+                highlightbackground=border_color,
+                highlightcolor=border_color,
+                bd=0,
+            )
+            brd.pack()
+
+            bg = COLORS["CARD"]
+            fg = COLORS["MUTED"] if not enabled else COLORS["TEXT"]
+
+            if is_today and enabled:
+                # subtle ring to mark today
+                brd.configure(highlightthickness=2, highlightbackground=COLORS["ACCENT"])
+
+            lbl = tk.Label(
+                brd, text=text, width=3,
+                font=FONTS["body"], bg=bg, fg=fg,
+                padx=8, pady=6,
+            )
+            lbl.pack()
+
+            if enabled and on_click:
+                def _hover(_e=None):
+                    lbl.configure(bg=COLORS["PRIMARY"], fg=COLORS.get("PRIMARY_TEXT", COLORS["WHITE"]))
+                    brd.configure(highlightbackground=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]))
+                def _leave(_e=None):
+                    lbl.configure(bg=bg, fg=COLORS["TEXT"])
+                    brd.configure(highlightbackground=COLORS["PRIMARY"])
+                for w in (brd, lbl):
+                    w.bind("<Enter>", _hover)
+                    w.bind("<Leave>", _leave)
+                    w.bind("<Button-1>", lambda _e: on_click())
+            return wrap
+
+        # ---- Header ----
+        header = tk.Frame(win, bg=COLORS["BG"]); header.pack(fill="x", pady=(8, 6))
+        title_var = tk.StringVar()
+
+        def _render_title():
+            title_var.set(showing.strftime("%B %Y"))
+
+        def _prev_month():
+            nonlocal showing
+            y, m = showing.year, showing.month
+            y, m = (y - 1, 12) if m == 1 else (y, m - 1)
+            # stop if entire month is before first_day
+            if _date(y, m, _cal.monthrange(y, m)[1]) < first_day:
+                return
+            showing = _date(y, m, 1)
+            _render_month()
+
+        def _next_month():
+            nonlocal showing
+            y, m = showing.year, showing.month
+            y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+            # stop if month would be after today's month
+            if _date(y, m, 1) > _date(today.year, today.month, 1):
+                return
+            showing = _date(y, m, 1)
+            _render_month()
+
+        prev_b = RoundButton(
+            header, "◀",
+            fill=COLORS["CARD"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+            fg=COLORS["TEXT"], padx=10, pady=6, radius=12, command=_prev_month
+        ); prev_b.pack(side="left", padx=8)
+
+        tk.Label(header, textvariable=title_var, font=FONTS["h2"], bg=COLORS["BG"], fg=COLORS["TEXT"])\
+            .pack(side="left", padx=8)
+
+        next_b = RoundButton(
+            header, "▶",
+            fill=COLORS["CARD"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+            fg=COLORS["TEXT"], padx=10, pady=6, radius=12, command=_next_month
+        ); next_b.pack(side="left", padx=8)
+
+        # Weekday row
+        wk = tk.Frame(win, bg=COLORS["BG"]); wk.pack(fill="x", pady=(0, 4))
+        for wd in ("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"):
+            tk.Label(wk, text=wd, width=4, font=FONTS["small"], bg=COLORS["BG"], fg=COLORS["MUTED"])\
+                .pack(side="left", padx=2)
+
+        grid = tk.Frame(win, bg=COLORS["BG"]); grid.pack(fill="both", expand=True, padx=8, pady=4)
+
+        # ---- Month grid ----
+        def _render_month():
+            for w in grid.winfo_children():
+                w.destroy()
+            _render_title()
+
+            m_first, m_last = _month_bounds(showing)
+            available = set()
+            if m_first <= m_last:
+                available = get_logged_days_in_range(m_first.isoformat(), m_last.isoformat())
+
+            cal = _cal.Calendar(firstweekday=0)  # Monday = 0
+            for week in cal.monthdayscalendar(showing.year, showing.month):
+                row = tk.Frame(grid, bg=COLORS["BG"]); row.pack()
+                for dnum in week:
+                    if dnum == 0:
+                        tk.Label(row, text="  ", width=4, bg=COLORS["BG"]).pack(side="left", padx=3, pady=3)
+                        continue
+
+                    d = _date(showing.year, showing.month, dnum)
+                    in_window = first_day <= d <= today
+                    d_iso = d.isoformat()
+                    is_clickable = in_window and (d_iso in available)
+                    is_today = (d == today)
+
+                    if is_clickable:
+                        def _jump(target=d):
+                            self.current_date = target
+                            self.refresh_all()
+                            try: win.destroy()
+                            except Exception: pass
+                        _tile(row, f"{dnum}", enabled=True, on_click=_jump, is_today=is_today)
+                    else:
+                        _tile(row, f"{dnum}", enabled=False)
+
+        _render_month()
+
     # ---------- Styles ----------
     def _apply_styles(self, style: ttk.Style):
-        style.configure("Treeview",
-                        background=COLORS["CARD"],
-                        fieldbackground=COLORS["CARD"],
-                        foreground=COLORS["TEXT"],
-                        rowheight=24)
-        style.configure("Treeview.Heading",
-                        background=COLORS["PRIMARY"],
-                        foreground=COLORS["WHITE"])
+        style.configure(
+            "Treeview",
+            background=COLORS["CARD"],
+            fieldbackground=COLORS["CARD"],
+            foreground=COLORS["TEXT"],
+            rowheight=24,
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=COLORS["PRIMARY"],
+            foreground=COLORS.get("PRIMARY_TEXT", "#FFFFFF"),
+        )
         style.configure("XP.Horizontal.TProgressbar",
                         troughcolor=COLORS["CARD"],
                         background=COLORS["PRIMARY"])
@@ -413,7 +588,6 @@ class HabitTrackerApp:
         pool = self._get_challenge_pool()
         title, trait, minutes, reward_pts, penalty_pts = random.choice(pool)
 
-
         # Daily Double multiplier (if today's atone matches)
         try:
             dd = get_daily_double(date.today().isoformat())
@@ -433,18 +607,21 @@ class HabitTrackerApp:
         except Exception:
             pass
 
-        tk.Label(win, text="Random Challenge", font=FONTS["h2"], bg=COLORS["BG"], fg=COLORS["TEXT"])\
-            .pack(pady=(12, 8))
-        tk.Label(win, text=title, font=FONTS["h3"], bg=COLORS["BG"], fg=COLORS["TEXT"])\
-            .pack(pady=(0, 6))
-        tk.Label(win, text=f"Trait: {trait}  •  Duration: {minutes} min", font=FONTS["small"],
-                 bg=COLORS["BG"], fg=COLORS["MUTED"]).pack(pady=(0, 8))
+        tk.Label(win, text="Random Challenge", font=FONTS["h2"], bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(pady=(12, 8))
+        tk.Label(win, text=title, font=FONTS["h3"], bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(pady=(0, 6))
+        tk.Label(
+            win, text=f"Trait: {trait}  •  Duration: {minutes} min",
+            font=FONTS["small"], bg=COLORS["BG"], fg=COLORS["MUTED"]
+        ).pack(pady=(0, 8))
 
-        timer_lbl = tk.Label(win, text=f"{minutes:02d}:00", font=("Helvetica", 18, "bold"),
-                             bg=COLORS["BG"], fg=COLORS["PRIMARY"])
+        timer_lbl = tk.Label(
+            win, text=f"{minutes:02d}:00", font=("Helvetica", 18, "bold"),
+            bg=COLORS["BG"], fg=COLORS["PRIMARY"]
+        )
         timer_lbl.pack(pady=(4, 10))
 
-        btn_row = tk.Frame(win, bg=COLORS["BG"]); btn_row.pack(pady=8)
+        btn_row = tk.Frame(win, bg=COLORS["BG"])
+        btn_row.pack(pady=8)
 
         # State for countdown
         seconds_left = minutes * 60
@@ -482,12 +659,18 @@ class HabitTrackerApp:
             # Swap buttons to Complete / Give Up
             for w in btn_row.winfo_children():
                 w.destroy()
-            RoundButton(btn_row, "Complete",
-                        fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
-                        fg=COLORS["WHITE"], padx=16, pady=10, radius=14, command=on_complete).pack(side="left", padx=8)
-            RoundButton(btn_row, "Give Up",
-                        fill=COLORS["ACCENT"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
-                        fg=COLORS["WHITE"], padx=16, pady=10, radius=14, command=on_fail).pack(side="left", padx=8)
+            RoundButton(
+                btn_row, "Complete",
+                fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+                fg=COLORS.get("PRIMARY_TEXT", COLORS["WHITE"]),
+                padx=16, pady=10, radius=14, command=on_complete
+            ).pack(side="left", padx=8)
+            RoundButton(
+                btn_row, "Give Up",
+                fill=COLORS["ACCENT"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
+                fg=COLORS.get("ACCENT_TEXT", COLORS["WHITE"]),
+                padx=16, pady=10, radius=14, command=on_fail
+            ).pack(side="left", padx=8)
             # Start countdown
             timer_lbl.config(text=fmt(seconds_left))
             ticking_id["id"] = win.after(1000, tick)
@@ -516,14 +699,18 @@ class HabitTrackerApp:
                 after_total = add_total_xp(reward_pts_eff * 10)
                 after = level_from_xp(after_total)
                 if after > before:
-                    try: play_sfx("levelUp")
-                    except Exception: pass
+                    try:
+                        play_sfx("levelUp")
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
             # SFX positive
-            try: play_sfx("statsUp")
-            except Exception: pass
+            try:
+                play_sfx("statsUp")
+            except Exception:
+                pass
 
             self.refresh_all()
             messagebox.showinfo("Challenge", "Completed! Nice work.")
@@ -550,8 +737,10 @@ class HabitTrackerApp:
                 pass
 
             # SFX negative
-            try: play_sfx("statsDown")
-            except Exception: pass
+            try:
+                play_sfx("statsDown")
+            except Exception:
+                pass
 
             self.refresh_all()
             message = "Time's up — challenge failed." if auto else "Challenge failed."
@@ -559,12 +748,17 @@ class HabitTrackerApp:
             win.destroy()
 
         # Initial buttons (Accept / Decline)
-        RoundButton(btn_row, "Accept",
-                    fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
-                    fg=COLORS["WHITE"], padx=16, pady=10, radius=14, command=on_accept).pack(side="left", padx=8)
-        RoundButton(btn_row, "Decline",
-                    fill=COLORS["CARD"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
-                    fg=COLORS["TEXT"], padx=16, pady=10, radius=14, command=on_decline).pack(side="left", padx=8)
+        RoundButton(
+            btn_row, "Accept",
+            fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+            fg=COLORS.get("PRIMARY_TEXT", COLORS["WHITE"]),
+            padx=16, pady=10, radius=14, command=on_accept
+        ).pack(side="left", padx=8)
+        RoundButton(
+            btn_row, "Decline",
+            fill=COLORS["CARD"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
+            fg=COLORS["TEXT"], padx=16, pady=10, radius=14, command=on_decline
+        ).pack(side="left", padx=8)
 
         # Clean up timer if window is closed
         def _on_close():
@@ -615,10 +809,14 @@ class HabitTrackerApp:
             self._rebuild_ui()
             win.destroy()
 
-        RoundButton(win, "Apply Theme",
-                    fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
-                    fg=COLORS["WHITE"], padx=16, pady=8, radius=12,
-                    command=apply_and_close).pack(pady=14)
+        RoundButton(
+            win, "Apply Theme",
+            fill=COLORS["PRIMARY"],
+            hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+            fg=COLORS.get("PRIMARY_TEXT", COLORS["WHITE"]),
+            padx=16, pady=8, radius=12,
+            command=apply_and_close
+        ).pack(pady=14)
 
     def _rebuild_ui(self):
         for w in self.root.winfo_children():

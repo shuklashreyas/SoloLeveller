@@ -286,7 +286,32 @@ def mark_contract_penalty_applied(cid: int):
     conn.commit()
     conn.close()
     
-from datetime import datetime as _dt
+# --- add near the other "entries" helpers ---
+def get_logged_days_in_range(start_iso: str, end_iso: str) -> set[str]:
+    """
+    Return a set of YYYY-MM-DD strings that have *any* logged content.
+    Currently: entries table only (ATONE/SIN). If you also want days with
+    Journal content to count as "available", uncomment the UNION below.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT DISTINCT date FROM entries
+        WHERE date BETWEEN ? AND ?
+        ORDER BY date ASC
+    """, (start_iso, end_iso))
+    rows = {r[0] for r in cur.fetchall()}
+
+    # If you want journal-only days to be pickable too, uncomment:
+    # cur.execute("""
+    #     SELECT DISTINCT date FROM journal
+    #     WHERE date BETWEEN ? AND ? AND TRIM(IFNULL(content,'')) <> ''
+    # """, (start_iso, end_iso))
+    # rows |= {r[0] for r in cur.fetchall()}
+
+    conn.close()
+    return rows
+
 
 def deactivate_expired_and_broken():
     """
