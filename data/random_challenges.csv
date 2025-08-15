@@ -1,0 +1,91 @@
+title,trait,minutes,reward_pts,penalty_pts
+"Do 45 pushups","Physical",30,3,2
+"3x60s plank (3 sets)","Physical",15,2,1
+"20-min jog","Physical",20,3,2
+"100 bodyweight squats","Physical",25,3,2
+"15-min mobility & stretch","Physical",15,2,1
+"30-min brisk walk","Physical",30,2,1
+"10-min jump rope","Physical",10,2,1
+"Climb 8 flights of stairs","Physical",10,2,1
+"30-min yoga flow","Physical",30,3,2
+"Shadowboxing 15 min","Physical",15,2,1
+"25 burpees","Physical",15,3,2
+"30-min cycling (outdoor or static)","Physical",30,3,2
+"Walk 3k steps now","Physical",30,2,1
+"5k run","Physical",40,3,2
+"1-hour walk","Physical",60,3,2
+"25-min Pomodoro deep work","Mindful",25,2,1
+"50-min deep work (no phone)","Mindful",50,3,2
+"20-min inbox zero sprint","Mindful",20,2,1
+"10-min desk reset","Mindful",10,2,1
+"5-min plan the next hour","Mindful",5,2,1
+"30-min single-task coding/reading","Mindful",30,3,2
+"30-min notifications-off focus","Mindful",30,2,1
+"30-min read one paper/guide","Mindful",30,3,2
+"10-min brain dump","Mindful",10,2,1
+"15-min timebox a task","Mindful",15,2,1
+"15-min organize to-do list","Mindful",15,2,1
+"15-min learn key shortcuts","Mindful",15,2,1
+"30-min offline work only","Mindful",30,3,2
+"10-min box breathing before work","Mindful",10,2,1
+"15-min distraction-free study","Mindful",15,2,1
+"30-min meditation and journal","Spiritual",30,3,2
+"10-min loving-kindness meditation","Spiritual",10,2,1
+"15-min gratitude journaling","Spiritual",15,2,1
+"20-min nature walk (no phone)","Spiritual",20,2,1
+"10-min prayer or reflection","Spiritual",10,2,1
+"30-min digital sunset (no screens)","Spiritual",30,2,1
+"Read 10 pages of spiritual/philosophy","Spiritual",20,2,1
+"5-min focused breathwork","Spiritual",5,2,1
+"15-min mindful eating","Spiritual",15,2,1
+"15-min guided relaxation","Spiritual",15,2,1
+"10-min mindful shower","Spiritual",10,2,1
+"Write a thank-you note","Spiritual",10,2,1
+"10-min compassion exercise","Spiritual",10,2,1
+"15-min values reflection","Spiritual",15,2,1
+"30-min watch sunrise/sunset mindfully","Spiritual",30,2,1
+"Read 20 pages","Intellect",40,3,2
+"30-min deliberate practice (skill)","Intellect",30,3,2
+"20-min educational lecture","Intellect",20,2,1
+"15-min spaced repetition cards","Intellect",15,2,1
+"30-min write a topic summary","Intellect",30,3,2
+"Solve 5 easy coding problems","Intellect",30,3,2
+"20-min language learning","Intellect",20,2,1
+"10-min mental math drill","Intellect",10,2,1
+"30-min take notes from book","Intellect",30,3,2
+"15-min teach-back (explain aloud)","Intellect",15,2,1
+"25-min algorithm practice","Intellect",25,3,2
+"20-min diagram a concept","Intellect",20,2,1
+"15-min read three abstracts","Intellect",15,2,1
+"30-min build a tiny prototype","Intellect",30,3,2
+"10-min speed reading drill","Intellect",10,2,1
+"Call someone you care about","Social",10,2,1
+"Send three thoughtful messages","Social",10,2,1
+"Schedule a catch-up","Social",10,2,1
+"Give one genuine compliment","Social",5,2,1
+"Write a thank-you email","Social",10,2,1
+"20-min distraction-free meal with someone","Social",20,2,1
+"Contribute to a community chat","Social",15,2,1
+"Offer help to a peer","Social",10,2,1
+"Record a check-in voice note","Social",5,2,1
+"Meet a neighbor briefly","Social",10,2,1
+"15-min networking outreach","Social",15,2,1
+"Curate your social feeds 15 min","Social",15,2,1
+"Resolve a small misunderstanding","Social",15,3,2
+"Introduce two people","Social",10,2,1
+"Write a handwritten note","Social",15,2,1
+"Complete a nagging chore","Integrity",25,3,2
+"Plan tomorrow now","Integrity",15,2,1
+"20-min inbox to zero","Integrity",20,2,1
+"10-min tidy workspace","Integrity",10,2,1
+"20-min review budget","Integrity",20,2,1
+"Track water and calories now","Integrity",5,2,1
+"Update your task tracker","Integrity",10,2,1
+"Fix one small bug or issue","Integrity",20,3,2
+"25-min hardest next task","Integrity",25,3,2
+"Lay out gym bag or clothes","Integrity",5,2,1
+"Prepare a healthy snack/meal","Integrity",20,2,1
+"15-min back up important files","Integrity",15,2,1
+"Unsubscribe from five emails","Integrity",10,2,1
+"Complete one pending form","Integrity",10,2,1
+"Review commitments and decline one misfit","Integrity",15,2,1

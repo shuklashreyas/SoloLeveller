@@ -2,7 +2,7 @@
 import os, random
 from database import get_meta, set_meta
 
-FILE_CANDIDATES = ["journal_prompts.txt", "assets/journal_prompts.txt", "prompts/journal_prompts.txt"]
+FILE_CANDIDATES = ["data/journal_prompts.txt", "assets/journal_prompts.txt", "prompts/journal_prompts.txt"]
 
 def _load_prompts():
     path = next((p for p in FILE_CANDIDATES if os.path.exists(p)), None)

@@ -8,7 +8,9 @@ except Exception:
     pygame = None  # we'll no-op if pygame isn't present
 
 _SEARCH_DIRS = [".", "soundeffects", "audio", "assets", "assets/music", "bgm", "music"]
-_DEFAULT_NAMES = ["bgmusic.mp3", "bgmusic2.mp3", "bgmusic3.mp3"]
+_DEFAULT_NAMES = ["bgmusic.mp3", "bgmusic2.mp3", "bgmusic3.mp3",
+                  "bgmusic4.mp3", "bgmusic5.mp3", "bgmusic6.mp3",
+                  "bgmusic7.mp3"]
 
 _playlist = []
 _last_idx = None

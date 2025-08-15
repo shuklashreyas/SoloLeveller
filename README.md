@@ -60,3 +60,14 @@ python main.py
 
 ### Resetting Data
 If you want to reset all progress: rm habit_tracker.db
+
+
+# License
+
+Legends Never Fall by Aylex | https://freetouse.com/music/aylex
+Free To Use | https://freetouse.com/music
+Music promoted by https://www.free-stock-music.com
+
+Winery by Aylex | https://freetouse.com/music/aylex
+Free To Use | https://freetouse.com/music
+Music promoted by https://www.free-stock-music.com

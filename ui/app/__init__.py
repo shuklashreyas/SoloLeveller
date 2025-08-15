@@ -55,6 +55,29 @@ from .parts_actions import (
 )
 from .parts_contracts import open_contracts as _open_contracts
 
+import csv
+from pathlib import Path
+
+CHALLENGE_CSV = Path("data/random_challenges.csv")
+
+def _load_challenge_pool_from_csv():
+    if not CHALLENGE_CSV.exists():
+        return None
+    pool = []
+    with CHALLENGE_CSV.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                title = row["title"].strip()
+                trait = row["trait"].strip()
+                minutes = int(row["minutes"])
+                reward = int(row["reward_pts"])
+                penalty = int(row["penalty_pts"])
+            except Exception:
+                continue
+            pool.append((title, trait, minutes, reward, penalty))
+    return pool or None
+
 
 class HabitTrackerApp:
     def __init__(self, root):
@@ -145,6 +168,26 @@ class HabitTrackerApp:
             self.actions.set_sound_state(self.sound_enabled)
         except Exception:
             pass
+        
+    def _get_challenge_pool(self):
+    # cache so we don’t re-read the file every click
+        if not hasattr(self, "_challenge_pool_cache"):
+            csv_pool = _load_challenge_pool_from_csv()
+            if csv_pool:
+                self._challenge_pool_cache = csv_pool
+            else:
+                # fallback to your current inline list
+                self._challenge_pool_cache = [
+                    ("Do 45 pushups",               "Physical", 30, 3, 2),
+                    ("Go for a 1-hour walk",        "Physical", 60, 3, 2),
+                    ("30 min deep work (no phone)", "Mindful",  30, 3, 2),
+                    ("20 min meditation + journal", "Spiritual",30, 3, 2),
+                    ("Read 20 pages",               "Intellect",40, 3, 2),
+                    ("Call someone you care about", "Social",   10, 2, 1),
+                    ("Complete a nagging chore",    "Integrity",25, 3, 2),
+                ]
+        return self._challenge_pool_cache
+
 
     def _clamp_to_allowed_range(self, d: date) -> date:
         today = date.today()
@@ -367,16 +410,9 @@ class HabitTrackerApp:
             return
 
         # (title, trait, minutes, reward_pts, penalty_pts)
-        pool = [
-            ("Do 45 pushups",                 "Physical", 30, 3, 2),
-            ("Go for a 1-hour walk",          "Physical", 60, 3, 2),
-            ("30 min deep work (no phone)",   "Mindful", 30, 3, 2),
-            ("20 min meditation + journal",   "Spiritual", 30, 3, 2),
-            ("Read 20 pages",                 "Intellect", 40, 3, 2),
-            ("Call someone you care about",   "Social", 10, 2, 1),
-            ("Complete a nagging chore",      "Integrity", 25, 3, 2),
-        ]
+        pool = self._get_challenge_pool()
         title, trait, minutes, reward_pts, penalty_pts = random.choice(pool)
+
 
         # Daily Double multiplier (if today's atone matches)
         try:
