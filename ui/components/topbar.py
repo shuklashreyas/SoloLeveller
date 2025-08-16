@@ -1,6 +1,7 @@
 # ui/components/topbar.py
 import tkinter as tk
 from datetime import date
+import math
 from constants import COLORS, FONTS
 from widgets import RoundButton
 
@@ -42,40 +43,76 @@ class TopBar(tk.Frame):
         # Currency display (coins + shards)
         self._coins_var = tk.StringVar(value="0")
         self._shards_var = tk.StringVar(value="0")
-        # Try to load images with tkinter.PhotoImage (no PIL dependency)
-        try:
-            coin_img = None
-            shard_img = None
-            try:
-                coin_img = tk.PhotoImage(file="images/coin.png")
-                # subsample to reduce size if image is large
-                try:
-                    coin_img = coin_img.subsample(6, 6)
-                except Exception:
-                    pass
-            except Exception:
-                coin_img = None
-            try:
-                shard_img = tk.PhotoImage(file="images/shard.png")
-                try:
-                    shard_img = shard_img.subsample(6, 6)
-                except Exception:
-                    pass
-            except Exception:
-                shard_img = None
-            self._coin_img = coin_img
-            self._shard_img = shard_img
-        except Exception:
-            self._coin_img = None
-            self._shard_img = None
 
-        # Layout: coin icon + value, shard icon + value
+        # Load images and ensure a consistent max size (approx 28px)
+        def _load_and_fit(path, max_size=28):
+            try:
+                img = tk.PhotoImage(file=path)
+                try:
+                    w, h = img.width(), img.height()
+                    if w > max_size or h > max_size:
+                        factor = max(1, int(max(w // max_size, h // max_size)))
+                        img = img.subsample(factor, factor)
+                except Exception:
+                    pass
+                return img
+            except Exception:
+                return None
+
+        self._coin_img = _load_and_fit("images/coin.png", max_size=28)
+        self._shard_img = _load_and_fit("images/shard.png", max_size=28)
+
+        # Create holders so we can animate the icons without disturbing layout
         if self._coin_img:
-            coin_icon = tk.Label(center, image=self._coin_img, bg=COLORS["BG"]) ; coin_icon.pack(side="left", padx=(4,2))
+            coin_holder = tk.Frame(center, width=34, height=34, bg=COLORS["BG"]) ; coin_holder.pack(side="left", padx=(6,2))
+            coin_holder.pack_propagate(False)
+            self._coin_label = tk.Label(coin_holder, image=self._coin_img, bg=COLORS["BG"]) ; self._coin_label.image = self._coin_img
+            self._coin_label.place(relx=0.5, rely=0.5, anchor='center')
+        else:
+            self._coin_label = None
+
         coin_lbl = tk.Label(center, textvariable=self._coins_var, font=FONTS["small"], bg=COLORS["BG"], fg=COLORS["MUTED"]) ; coin_lbl.pack(side="left", padx=(2,8))
+
         if self._shard_img:
-            shard_icon = tk.Label(center, image=self._shard_img, bg=COLORS["BG"]) ; shard_icon.pack(side="left", padx=(4,2))
+            shard_holder = tk.Frame(center, width=34, height=34, bg=COLORS["BG"]) ; shard_holder.pack(side="left", padx=(6,2))
+            shard_holder.pack_propagate(False)
+            self._shard_label = tk.Label(shard_holder, image=self._shard_img, bg=COLORS["BG"]) ; self._shard_label.image = self._shard_img
+            self._shard_label.place(relx=0.5, rely=0.5, anchor='center')
+        else:
+            self._shard_label = None
+
         shard_lbl = tk.Label(center, textvariable=self._shards_var, font=FONTS["small"], bg=COLORS["BG"], fg=COLORS["MUTED"]) ; shard_lbl.pack(side="left", padx=(2,4))
+
+        # Animations: coin bobs vertically, shard pulses (subtle scale via padding)
+        try:
+            # coin bob
+            if self._coin_label:
+                self._coin_label._phase = 0.0
+                def _coin_bob():
+                    try:
+                        self._coin_label._phase += 0.25
+                        y = int(3 * math.sin(self._coin_label._phase))
+                        self._coin_label.place_configure(relx=0.5, rely=0.5, anchor='center', y=y)
+                    except Exception:
+                        return
+                    self.after(140, _coin_bob)
+                _coin_bob()
+
+            # shard bob (gentle vertical motion with a slightly different phase)
+            if self._shard_label:
+                # shard uses a similar gentle bob but with a phase offset so movement feels distinct
+                self._shard_label._phase = 0.9
+                def _shard_bob():
+                    try:
+                        self._shard_label._phase += 0.25
+                        y = int(3 * math.sin(self._shard_label._phase))
+                        self._shard_label.place_configure(relx=0.5, rely=0.5, anchor='center', y=y)
+                    except Exception:
+                        return
+                    self.after(140, _shard_bob)
+                _shard_bob()
+        except Exception:
+            pass
 
         right = tk.Frame(self, bg=COLORS["BG"])
         right.pack(side="right")
