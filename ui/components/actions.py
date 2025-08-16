@@ -15,10 +15,12 @@ class ActionsBar(tk.Frame):
         on_sin,
         on_theme,
         on_contracts=None,
-        on_faq=None,
-        on_sound_toggle=None,
+    on_faq=None,
+    on_sound_toggle=None,
+    on_items=None,
         on_today=None,
         on_random_challenge=None,
+        on_logger=None,
     ):
         super().__init__(master, bg=COLORS["BG"])
 
@@ -73,6 +75,19 @@ class ActionsBar(tk.Frame):
             )
             self.challenge_btn.pack(side="left", padx=14)
 
+        # Logger (optional)
+        self.logger_btn = None
+        if on_logger:
+            self.logger_btn = RoundButton(
+                left, "Logger",
+                fill=COLORS["CARD"],
+                hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+                fg=COLORS.get("CARD_TEXT", COLORS["TEXT"]),
+                padx=16, pady=10, radius=14,
+                command=on_logger
+            )
+            self.logger_btn.pack(side="left", padx=10)
+
         # Contracts (optional, stands out a bit)
         self.contracts_btn = None
         if on_contracts:
@@ -109,6 +124,17 @@ class ActionsBar(tk.Frame):
             command=on_theme
         )
         self.theme_btn.pack(side="left", padx=8)
+
+        # Items inventory (optional)
+        if on_items:
+            self.items_btn = RoundButton(
+                right, "Items",
+                fill=COLORS["CARD"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
+                fg=COLORS.get("CARD_TEXT", COLORS["TEXT"]),
+                padx=12, pady=10, radius=14,
+                command=on_items
+            )
+            self.items_btn.pack(side="left", padx=8)
 
         # FAQ (optional)
         if on_faq:

@@ -35,7 +35,48 @@ class TopBar(tk.Frame):
         )
         self.next_btn.pack(side="left", padx=6)
 
-        # Right cluster: rank text … [Calendar]
+        # Center cluster: currency (coins + shards)
+        center = tk.Frame(self, bg=COLORS["BG"])
+        center.pack(side="left", expand=True)
+
+        # Currency display (coins + shards)
+        self._coins_var = tk.StringVar(value="0")
+        self._shards_var = tk.StringVar(value="0")
+        # Try to load images with tkinter.PhotoImage (no PIL dependency)
+        try:
+            coin_img = None
+            shard_img = None
+            try:
+                coin_img = tk.PhotoImage(file="images/coin.png")
+                # subsample to reduce size if image is large
+                try:
+                    coin_img = coin_img.subsample(6, 6)
+                except Exception:
+                    pass
+            except Exception:
+                coin_img = None
+            try:
+                shard_img = tk.PhotoImage(file="images/shard.png")
+                try:
+                    shard_img = shard_img.subsample(6, 6)
+                except Exception:
+                    pass
+            except Exception:
+                shard_img = None
+            self._coin_img = coin_img
+            self._shard_img = shard_img
+        except Exception:
+            self._coin_img = None
+            self._shard_img = None
+
+        # Layout: coin icon + value, shard icon + value
+        if self._coin_img:
+            coin_icon = tk.Label(center, image=self._coin_img, bg=COLORS["BG"]) ; coin_icon.pack(side="left", padx=(4,2))
+        coin_lbl = tk.Label(center, textvariable=self._coins_var, font=FONTS["small"], bg=COLORS["BG"], fg=COLORS["MUTED"]) ; coin_lbl.pack(side="left", padx=(2,8))
+        if self._shard_img:
+            shard_icon = tk.Label(center, image=self._shard_img, bg=COLORS["BG"]) ; shard_icon.pack(side="left", padx=(4,2))
+        shard_lbl = tk.Label(center, textvariable=self._shards_var, font=FONTS["small"], bg=COLORS["BG"], fg=COLORS["MUTED"]) ; shard_lbl.pack(side="left", padx=(2,4))
+
         right = tk.Frame(self, bg=COLORS["BG"])
         right.pack(side="right")
 
@@ -78,3 +119,13 @@ class TopBar(tk.Frame):
 
     def set_next_enabled(self, ok: bool):
         self.next_btn.enable(bool(ok))
+
+    def set_currency(self, coins: int, shards: int):
+        try:
+            self._coins_var.set(str(int(coins)))
+        except Exception:
+            self._coins_var.set("0")
+        try:
+            self._shards_var.set(str(int(shards)))
+        except Exception:
+            self._shards_var.set("0")

@@ -1,4 +1,6 @@
 import tkinter as tk
+from tkinter import messagebox
+from datetime import date
 from constants import COLORS, FONTS
 from widgets import RoundButton
 
@@ -21,9 +23,9 @@ class JournalPanel(tk.Frame):
         )
         self.prompt_lbl.pack(side="right")
 
-        # Smaller text area
+        # Smaller text area (reduced height)
         self.text = tk.Text(
-            self, height=6, wrap="word",
+            self, height=3, wrap="word",
             bg=COLORS["WHITE"], fg=COLORS["TEXT"],
             highlightthickness=0, relief="flat", font=("Helvetica", 13),
             insertbackground=COLORS["PRIMARY"],  # caret color
@@ -46,6 +48,84 @@ class JournalPanel(tk.Frame):
             command=self._save
         )
         self.save_btn.pack(side="right")
+
+        # ---- Shop area (under journal) ----
+        shop_frame = tk.Frame(self, bg=COLORS["CARD"], bd=0)
+        shop_frame.pack(fill="x", padx=12, pady=(6, 12))
+
+        tk.Label(shop_frame, text="Shop", font=FONTS["h3"], bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(anchor="w")
+        self._shop_row = tk.Frame(shop_frame, bg=COLORS["CARD"]) ; self._shop_row.pack(fill="x", pady=(6,0))
+
+        # Load tokens and show three random items
+        try:
+            import csv, random, json
+            from pathlib import Path
+            tokens = []
+            tokp = Path("data/shop_tokens.csv")
+            if tokp.exists():
+                with tokp.open(encoding="utf-8") as f:
+                    reader = csv.DictReader(f)
+                    for r in reader:
+                        tokens.append(r)
+            choices = random.sample(tokens, min(3, len(tokens))) if tokens else []
+        except Exception:
+            choices = []
+
+        # Simple inventory save
+        inv_path = Path("data/shop_inventory.json")
+
+        def _buy(tok):
+            try:
+                from shop.currency import add_coins
+                cost = int(tok.get("cost_amount") or 0)
+                currency = (tok.get("cost_currency") or "coins").lower()
+                if currency != "coins":
+                    messagebox.showinfo("Shop", "Only coins supported for now.", parent=self)
+                    return
+                applied = add_coins(-cost)
+                if applied == 0:
+                    messagebox.showinfo("Shop", "Not enough coins.", parent=self)
+                    return
+                # persist
+                items = []
+                try:
+                    if inv_path.exists():
+                        items = json.loads(inv_path.read_text(encoding="utf-8") or "[]")
+                except Exception:
+                    items = []
+                items.append({"item": tok.get("item"), "category": tok.get("category"), "bought_at": str(date.today())})
+                inv_path.write_text(json.dumps(items), encoding="utf-8")
+                messagebox.showinfo("Shop", f"Bought {tok.get('item')}", parent=self)
+            except Exception:
+                messagebox.showinfo("Shop", "Purchase failed.", parent=self)
+
+        for i, tok in enumerate(choices):
+            frm = tk.Frame(self._shop_row, bg=COLORS["CARD"], bd=0)
+            frm.pack(side="left", padx=8)
+            # token image if available
+            img_path = Path(f"images/token{i+1}.png")
+            if img_path.exists():
+                try:
+                    img = tk.PhotoImage(file=str(img_path))
+                    # If the image is large, subsample it so it fits the journal UI.
+                    # Aim for a maximum dimension of ~48px for token previews.
+                    try:
+                        max_size = 48
+                        w, h = img.width(), img.height()
+                        if w > max_size or h > max_size:
+                            factor = max(1, int(max(w // max_size, h // max_size)))
+                            img = img.subsample(factor, factor)
+                    except Exception:
+                        # If subsample or size checks fail, fall back to the original image.
+                        pass
+                    lbl_img = tk.Label(frm, image=img, bg=COLORS["CARD"]) ; lbl_img.image = img
+                    lbl_img.pack()
+                except Exception:
+                    pass
+            tk.Label(frm, text=tok.get("item"), bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack()
+            tk.Label(frm, text=f"{tok.get('duration','')}", bg=COLORS["CARD"], fg=COLORS["MUTED"], font=FONTS["small"]).pack()
+            b = RoundButton(frm, "Buy", fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]), fg=COLORS["WHITE"], padx=10, pady=6, radius=10, command=lambda t=tok: _buy(t))
+            b.pack(pady=(6,0))
 
     # ---- API ----
     def set_prompt(self, text: str):

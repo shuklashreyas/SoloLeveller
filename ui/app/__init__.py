@@ -40,6 +40,7 @@ from exp_system import (
 )
 from widgets import RoundButton
 from quiz import BaselineQuiz
+from shop.currency import init as init_currency, add_coins, get_coins, get_coins_today, get_shards
 
 # Components
 from ..components.topbar import TopBar
@@ -149,6 +150,23 @@ class HabitTrackerApp:
         self.current_date = date.today()
         self.prev_stat_values = {t: STAT_MIN for t in POSITIVE_TRAITS}
         self.prev_xp_in_level = 0
+        # currency init
+        try:
+            init_currency()
+        except Exception:
+            pass
+        # For testing: seed large balance
+        try:
+            from shop.currency import set_coins_total, set_shards_total
+            set_coins_total(10000)
+            set_shards_total(5)
+        except Exception:
+            pass
+        # track previous total xp for coin drip
+        try:
+            self._prev_total_xp = get_total_xp()
+        except Exception:
+            self._prev_total_xp = 0
 
         # Now build the rest of the UI
         self._build_ui()
@@ -170,6 +188,34 @@ class HabitTrackerApp:
             self.actions.set_sound_state(self.sound_enabled)
         except Exception:
             pass
+
+    # ---------- Shop / Items UI ----------
+    def show_items(self):
+        # simple inventory viewer stored in data/shop_inventory.json
+        import json
+        inv_path = Path("data/shop_inventory.json")
+        items = []
+        if inv_path.exists():
+            try:
+                items = json.loads(inv_path.read_text(encoding="utf-8") or "[]")
+            except Exception:
+                items = []
+
+        win = tk.Toplevel(self.root)
+        win.title("Items")
+        win.configure(bg=COLORS["BG"])
+        win.geometry("420x320")
+        win.grab_set()
+
+        tk.Label(win, text="Owned Items", font=FONTS["h2"], bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(pady=(12,8))
+        body = tk.Frame(win, bg=COLORS["CARD"])
+        body.pack(fill="both", expand=True, padx=12, pady=8)
+
+        if not items:
+            tk.Label(body, text="No items owned.", bg=COLORS["CARD"], fg=COLORS["MUTED"]).pack(padx=8, pady=8)
+        else:
+            for it in items:
+                tk.Label(body, text=it.get("item","?"), bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(anchor="w", padx=8, pady=4)
 
     def _get_challenge_pool(self):
         # cache so we don’t re-read the file every click
@@ -256,8 +302,10 @@ class HabitTrackerApp:
                 on_contracts=self.open_contracts,
                 on_faq=None,
                 on_sound_toggle=self.toggle_sound,
-                on_today=self.go_to_today,                   # NEW
-                on_random_challenge=self.open_random_challenge,  # NEW
+                on_today=self.go_to_today,                  
+                on_random_challenge=self.open_random_challenge,
+                on_logger=self.open_logger,
+                on_items=self.show_items,
             )
         except TypeError:
             self.actions = ActionsBar(
@@ -268,6 +316,7 @@ class HabitTrackerApp:
                 on_contracts=self.open_contracts,
             )
         self.actions.pack(fill="x", pady=10)
+    
 
     # --- Calendar popup (only clickable on days that have entries) ---
     def open_calendar_popup(self):
@@ -523,6 +572,20 @@ class HabitTrackerApp:
         self.actions.enable(is_today)
 
         total = get_total_xp()
+        try:
+            # XP -> coin drip: 1 coin per 50 XP gained since last refresh
+            prev = getattr(self, "_prev_total_xp", total)
+            xp_delta = max(0, total - prev)
+            if xp_delta >= 50:
+                coins_to_award = xp_delta // 50
+                # add_coins returns applied amount
+                try:
+                    added = add_coins(int(coins_to_award))
+                except Exception:
+                    added = 0
+            self._prev_total_xp = total
+        except Exception:
+            pass
         lvl = level_from_xp(total)
         in_lvl = xp_in_level(total, lvl)
         need = xp_to_next(lvl)
@@ -535,6 +598,12 @@ class HabitTrackerApp:
             pass
         try:
             self.actions.set_sound_state(self.sound_enabled)
+        except Exception:
+            pass
+        # Update topbar currency display
+        try:
+            if hasattr(self, "topbar"):
+                self.topbar.set_currency(get_coins(), get_shards())
         except Exception:
             pass
 

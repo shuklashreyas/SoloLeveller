@@ -1,0 +1,121 @@
+category,item,effect,duration,cost_amount,cost_currency,notes
+Boosts,Physical Booster #1,+25% XP from Physical Atones,today,40,Coins,Trait-specific
+Boosts,Omni Booster #2,+10% XP from all Atones,today,60,Coins,Global bump
+Boosts,Contract Focus #3,+25% XP on active contract trait Atones,today,1,Shards,Synergizes with contracts
+Boosts,Streak Spark #4,+0.10 streak multiplier,today,50,Coins,Cap respected
+Boosts,Daily Double Amplifier #5,Daily Double Atones give +0.5× more,today,2,Shards,Does not affect Sins
+Boosts,Logger Bonus #6,All Logger tasks give +25% XP,today,60,Coins,Encourages planning
+Boosts,Challenge Booster #7,Challenge success gives +50% XP,1 use,50,Coins,Next challenge only
+Boosts,Physical Booster #8,+25% XP from Physical Atones,today,40,Coins,Trait-specific
+Boosts,Omni Booster #9,+10% XP from all Atones,today,60,Coins,Global bump
+Boosts,Contract Focus #10,+25% XP on active contract trait Atones,today,1,Shards,Synergizes with contracts
+Boosts,Streak Spark #11,+0.10 streak multiplier,today,50,Coins,Cap respected
+Boosts,Daily Double Amplifier #12,Daily Double Atones give +0.5× more,today,2,Shards,Does not affect Sins
+Boosts,Logger Bonus #13,All Logger tasks give +25% XP,today,60,Coins,Encourages planning
+Boosts,Challenge Booster #14,Challenge success gives +50% XP,1 use,50,Coins,Next challenge only
+Boosts,Physical Booster #15,+25% XP from Physical Atones,today,40,Coins,Trait-specific
+Boosts,Omni Booster #16,+10% XP from all Atones,today,60,Coins,Global bump
+Boosts,Contract Focus #17,+25% XP on active contract trait Atones,today,1,Shards,Synergizes with contracts
+Boosts,Streak Spark #18,+0.10 streak multiplier,today,50,Coins,Cap respected
+Boosts,Daily Double Amplifier #19,Daily Double Atones give +0.5× more,today,2,Shards,Does not affect Sins
+Boosts,Logger Bonus #20,All Logger tasks give +25% XP,today,60,Coins,Encourages planning
+Neglects,Mindful Cushion #1,Mindful Sins lose 25% penalty,today,45,Coins,Trait-specific
+Neglects,Gentle Landing #2,Next 3 Sins reduced by 1 XP,charges,50,Coins,Charges shown in UI
+Neglects,One-Time Pardon #3,Erase one Sin ≤ -2,1 use,1,Shards,Cannot erase Contract penalties
+Neglects,Wrath Ward #4,Wrath penalties halved,today,1,Shards,Variant by category
+Neglects,Slip Insurance #5,Missed day halves streak,triggered,2,Shards,Consumed when triggered
+Neglects,Mindful Cushion #6,Mindful Sins lose 25% penalty,today,45,Coins,Trait-specific
+Neglects,Gentle Landing #7,Next 3 Sins reduced by 1 XP,charges,50,Coins,Charges shown in UI
+Neglects,One-Time Pardon #8,Erase one Sin ≤ -2,1 use,1,Shards,Cannot erase Contract penalties
+Neglects,Wrath Ward #9,Wrath penalties halved,today,1,Shards,Variant by category
+Neglects,Slip Insurance #10,Missed day halves streak,triggered,2,Shards,Consumed when triggered
+Neglects,Mindful Cushion #11,Mindful Sins lose 25% penalty,today,45,Coins,Trait-specific
+Neglects,Gentle Landing #12,Next 3 Sins reduced by 1 XP,charges,50,Coins,Charges shown in UI
+Neglects,One-Time Pardon #13,Erase one Sin ≤ -2,1 use,1,Shards,Cannot erase Contract penalties
+Neglects,Wrath Ward #14,Wrath penalties halved,today,1,Shards,Variant by category
+Neglects,Slip Insurance #15,Missed day halves streak,triggered,2,Shards,Consumed when triggered
+Neglects,Mindful Cushion #16,Mindful Sins lose 25% penalty,today,45,Coins,Trait-specific
+Neglects,Gentle Landing #17,Next 3 Sins reduced by 1 XP,charges,50,Coins,Charges shown in UI
+Neglects,One-Time Pardon #18,Erase one Sin ≤ -2,1 use,1,Shards,Cannot erase Contract penalties
+Neglects,Wrath Ward #19,Wrath penalties halved,today,1,Shards,Variant by category
+Neglects,Slip Insurance #20,Missed day halves streak,triggered,2,Shards,Consumed when triggered
+Contracts & Offers,Contract Shield #1,Next broken contract penalty –50%,1 use,2,Shards,One-time
+Contracts & Offers,Grace Period #2,Extend contract by +1 day,1 use,2,Shards,1× per contract
+Contracts & Offers,Offer Beacon #3,Generate 1 new offer,24h,60,Coins,Cooldown 24h
+Contracts & Offers,Contract Shield #4,Next broken contract penalty –50%,1 use,2,Shards,One-time
+Contracts & Offers,Grace Period #5,Extend contract by +1 day,1 use,2,Shards,1× per contract
+Contracts & Offers,Offer Beacon #6,Generate 1 new offer,24h,60,Coins,Cooldown 24h
+Contracts & Offers,Contract Shield #7,Next broken contract penalty –50%,1 use,2,Shards,One-time
+Contracts & Offers,Grace Period #8,Extend contract by +1 day,1 use,2,Shards,1× per contract
+Contracts & Offers,Offer Beacon #9,Generate 1 new offer,24h,60,Coins,Cooldown 24h
+Contracts & Offers,Contract Shield #10,Next broken contract penalty –50%,1 use,2,Shards,One-time
+Contracts & Offers,Grace Period #11,Extend contract by +1 day,1 use,2,Shards,1× per contract
+Contracts & Offers,Offer Beacon #12,Generate 1 new offer,24h,60,Coins,Cooldown 24h
+Contracts & Offers,Contract Shield #13,Next broken contract penalty –50%,1 use,2,Shards,One-time
+Contracts & Offers,Grace Period #14,Extend contract by +1 day,1 use,2,Shards,1× per contract
+Contracts & Offers,Offer Beacon #15,Generate 1 new offer,24h,60,Coins,Cooldown 24h
+Contracts & Offers,Contract Shield #16,Next broken contract penalty –50%,1 use,2,Shards,One-time
+Contracts & Offers,Grace Period #17,Extend contract by +1 day,1 use,2,Shards,1× per contract
+Contracts & Offers,Offer Beacon #18,Generate 1 new offer,24h,60,Coins,Cooldown 24h
+Contracts & Offers,Contract Shield #19,Next broken contract penalty –50%,1 use,2,Shards,One-time
+Contracts & Offers,Grace Period #20,Extend contract by +1 day,1 use,2,Shards,1× per contract
+Logger,Task Doubler #1,One Logger task counts as two,tomorrow,40,Coins,Mark task at purchase
+Logger,Planner’s Edge #2,Logger bonus +50%,tomorrow,60,Coins,Applies once
+Logger,Penalty Buffer #3,Logger penalty reduced by 30%,tomorrow,45,Coins,If incomplete
+Logger,Task Doubler #4,One Logger task counts as two,tomorrow,40,Coins,Mark task at purchase
+Logger,Planner’s Edge #5,Logger bonus +50%,tomorrow,60,Coins,Applies once
+Logger,Penalty Buffer #6,Logger penalty reduced by 30%,tomorrow,45,Coins,If incomplete
+Logger,Task Doubler #7,One Logger task counts as two,tomorrow,40,Coins,Mark task at purchase
+Logger,Planner’s Edge #8,Logger bonus +50%,tomorrow,60,Coins,Applies once
+Logger,Penalty Buffer #9,Logger penalty reduced by 30%,tomorrow,45,Coins,If incomplete
+Logger,Task Doubler #10,One Logger task counts as two,tomorrow,40,Coins,Mark task at purchase
+Logger,Planner’s Edge #11,Logger bonus +50%,tomorrow,60,Coins,Applies once
+Logger,Penalty Buffer #12,Logger penalty reduced by 30%,tomorrow,45,Coins,If incomplete
+Logger,Task Doubler #13,One Logger task counts as two,tomorrow,40,Coins,Mark task at purchase
+Logger,Planner’s Edge #14,Logger bonus +50%,tomorrow,60,Coins,Applies once
+Logger,Penalty Buffer #15,Logger penalty reduced by 30%,tomorrow,45,Coins,If incomplete
+Logger,Task Doubler #16,One Logger task counts as two,tomorrow,40,Coins,Mark task at purchase
+Logger,Planner’s Edge #17,Logger bonus +50%,tomorrow,60,Coins,Applies once
+Logger,Penalty Buffer #18,Logger penalty reduced by 30%,tomorrow,45,Coins,If incomplete
+Logger,Task Doubler #19,One Logger task counts as two,tomorrow,40,Coins,Mark task at purchase
+Logger,Planner’s Edge #20,Logger bonus +50%,tomorrow,60,Coins,Applies once
+Random Challenge,Challenge Reroll #1,Reroll challenge once,1 use,20,Coins,Same pool
+Random Challenge,Time Cushion #2,+5 minutes to timer,1 use,25,Coins,Once per challenge
+Random Challenge,Safe Decline #3,Decline without replacement,1 use,30,Coins,Avoids forced new challenge
+Random Challenge,Challenge Reroll #4,Reroll challenge once,1 use,20,Coins,Same pool
+Random Challenge,Time Cushion #5,+5 minutes to timer,1 use,25,Coins,Once per challenge
+Random Challenge,Safe Decline #6,Decline without replacement,1 use,30,Coins,Avoids forced new challenge
+Random Challenge,Challenge Reroll #7,Reroll challenge once,1 use,20,Coins,Same pool
+Random Challenge,Time Cushion #8,+5 minutes to timer,1 use,25,Coins,Once per challenge
+Random Challenge,Safe Decline #9,Decline without replacement,1 use,30,Coins,Avoids forced new challenge
+Random Challenge,Challenge Reroll #10,Reroll challenge once,1 use,20,Coins,Same pool
+Random Challenge,Time Cushion #11,+5 minutes to timer,1 use,25,Coins,Once per challenge
+Random Challenge,Safe Decline #12,Decline without replacement,1 use,30,Coins,Avoids forced new challenge
+Random Challenge,Challenge Reroll #13,Reroll challenge once,1 use,20,Coins,Same pool
+Random Challenge,Time Cushion #14,+5 minutes to timer,1 use,25,Coins,Once per challenge
+Random Challenge,Safe Decline #15,Decline without replacement,1 use,30,Coins,Avoids forced new challenge
+Random Challenge,Challenge Reroll #16,Reroll challenge once,1 use,20,Coins,Same pool
+Random Challenge,Time Cushion #17,+5 minutes to timer,1 use,25,Coins,Once per challenge
+Random Challenge,Safe Decline #18,Decline without replacement,1 use,30,Coins,Avoids forced new challenge
+Random Challenge,Challenge Reroll #19,Reroll challenge once,1 use,20,Coins,Same pool
+Random Challenge,Time Cushion #20,+5 minutes to timer,1 use,25,Coins,Once per challenge
+Utility & QoL,Daily Double Reroll #1,Reroll Atone or Sin,1 use,25,Coins,Once per day
+Utility & QoL,Theme Unlock #2,Unlock premium palette,permanent,80,Coins,Cosmetic only
+Utility & QoL,Stat Lens #3,View 14/60/90d EMA graphs,session,30,Coins,Temporary analytics
+Utility & QoL,Daily Double Reroll #4,Reroll Atone or Sin,1 use,25,Coins,Once per day
+Utility & QoL,Theme Unlock #5,Unlock premium palette,permanent,80,Coins,Cosmetic only
+Utility & QoL,Stat Lens #6,View 14/60/90d EMA graphs,session,30,Coins,Temporary analytics
+Utility & QoL,Daily Double Reroll #7,Reroll Atone or Sin,1 use,25,Coins,Once per day
+Utility & QoL,Theme Unlock #8,Unlock premium palette,permanent,80,Coins,Cosmetic only
+Utility & QoL,Stat Lens #9,View 14/60/90d EMA graphs,session,30,Coins,Temporary analytics
+Utility & QoL,Daily Double Reroll #10,Reroll Atone or Sin,1 use,25,Coins,Once per day
+Utility & QoL,Theme Unlock #11,Unlock premium palette,permanent,80,Coins,Cosmetic only
+Utility & QoL,Stat Lens #12,View 14/60/90d EMA graphs,session,30,Coins,Temporary analytics
+Utility & QoL,Daily Double Reroll #13,Reroll Atone or Sin,1 use,25,Coins,Once per day
+Utility & QoL,Theme Unlock #14,Unlock premium palette,permanent,80,Coins,Cosmetic only
+Utility & QoL,Stat Lens #15,View 14/60/90d EMA graphs,session,30,Coins,Temporary analytics
+Utility & QoL,Daily Double Reroll #16,Reroll Atone or Sin,1 use,25,Coins,Once per day
+Utility & QoL,Theme Unlock #17,Unlock premium palette,permanent,80,Coins,Cosmetic only
+Utility & QoL,Stat Lens #18,View 14/60/90d EMA graphs,session,30,Coins,Temporary analytics
+Utility & QoL,Daily Double Reroll #19,Reroll Atone or Sin,1 use,25,Coins,Once per day
+Utility & QoL,Theme Unlock #20,Unlock premium palette,permanent,80,Coins,Cosmetic only
