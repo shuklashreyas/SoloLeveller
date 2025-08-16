@@ -42,13 +42,34 @@ class JournalPanel(tk.Frame):
         def _norm(s):  # local helper visible to nested funcs
             return (s or "").strip().lower()
 
+
+
         self._live_images = []            # keep strong refs so PhotoImage isn't GC'd
         self._icon_by_category = {}       # normalized category -> PhotoImage
         self._icon_list = []              # [token1..token6] in order for fallback
 
         images_dir = Path(__file__).resolve().parents[2] / "images"
 
-        def _load_png(fname, max_wh=72):
+        # Load currency icons
+        self._currency_icons = {}
+        for name in ["coin", "shard"]:
+            icon = None
+            try:
+                orig_icon = tk.PhotoImage(file=str(images_dir / f"{name}.png"))
+                # Subsample to make it smaller for the label (e.g., 24x24 or less)
+                w, h = orig_icon.width(), orig_icon.height()
+                factor = max(1, int(max(w, h) / 20))
+                if factor > 1:
+                    icon = orig_icon.subsample(factor, factor)
+                else:
+                    icon = orig_icon
+                self._live_images.append(icon)
+            except Exception:
+                pass
+            self._currency_icons[name] = icon
+
+
+        def _load_png(fname, max_wh=48):
             p = images_dir / fname
             if not p.exists():
                 print(f"[shop.img] missing {p}")
@@ -122,6 +143,7 @@ class JournalPanel(tk.Frame):
         )
         self.save_btn.pack(side="right")
 
+
         # ---------- Shop area ----------
         shop_frame = tk.Frame(self, bg=COLORS["CARD"], bd=0)
         shop_frame.pack(fill="x", padx=12, pady=(6, 12))
@@ -129,6 +151,76 @@ class JournalPanel(tk.Frame):
         tk.Label(shop_frame, text="Shop", font=FONTS["h3"], bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(anchor="w")
         self._shop_row = tk.Frame(shop_frame, bg=COLORS["CARD"])
         self._shop_row.pack(fill="x", pady=(6, 0))
+
+
+
+        # Place My Items button on the action bar (right, next to Save Journal)
+        def _show_inventory_popup():
+            win = tk.Toplevel(self)
+            win.title("Inventory")
+            win.configure(bg=COLORS["CARD"])
+            tk.Label(win, text="Inventory", font=FONTS["h3"], bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(anchor="w", padx=12, pady=(12, 0))
+
+            # --- Scrollable frame setup ---
+            outer = tk.Frame(win, bg=COLORS["CARD"])
+            outer.pack(fill="both", expand=True, padx=12, pady=(6, 12))
+            canvas = tk.Canvas(outer, bg=COLORS["CARD"], highlightthickness=0, bd=0, width=420, height=320)
+            scrollbar = tk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+            scroll_frame = tk.Frame(canvas, bg=COLORS["CARD"])
+            scroll_frame_id = canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+
+            def _on_frame_configure(event):
+                canvas.configure(scrollregion=canvas.bbox("all"))
+            scroll_frame.bind("<Configure>", _on_frame_configure)
+
+            # --- Inventory content ---
+            inv_path = Path("data/shop_inventory.json")
+            items = []
+            try:
+                if inv_path.exists():
+                    items = json.loads(inv_path.read_text(encoding="utf-8") or "[]")
+            except Exception:
+                items = []
+            if not items:
+                tk.Label(scroll_frame, text="No tokens owned.", bg=COLORS["CARD"], fg=COLORS["MUTED"]).pack()
+            else:
+                tokens = []
+                tokp = Path("data/shop_tokens.csv")
+                try:
+                    if tokp.exists():
+                        with tokp.open(encoding="utf-8") as f:
+                            for r in csv.DictReader(f):
+                                tokens.append(r)
+                except Exception:
+                    pass
+                for entry in items:
+                    name = entry.get("item")
+                    tok = next((t for t in tokens if t.get("item") == name), None)
+                    if not tok:
+                        continue
+                    cat_norm = (tok.get("category") or "").strip().lower()
+                    img = self._icon_by_category.get(cat_norm)
+                    if not img:
+                        idx = abs(hash(cat_norm)) % max(1, len(self._icon_list))
+                        img = self._icon_list[idx]
+                    row = tk.Frame(scroll_frame, bg=COLORS["CARD"])
+                    row.pack(fill="x", pady=2)
+                    if img:
+                        icon_lbl = tk.Label(row, image=img, bg=COLORS["CARD"])
+                        icon_lbl.image = img
+                        icon_lbl.pack(side="left", padx=(0, 8))
+                    desc = tok.get("effect") or "No description."
+                    tk.Label(row, text=name, font=(None, 11, "bold"), bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(side="left")
+                    tk.Label(row, text=desc, font=(None, 10), bg=COLORS["CARD"], fg=COLORS["MUTED"], wraplength=260, justify="left").pack(side="left", padx=(8, 0))
+
+            RoundButton(win, "Close", fill=COLORS["PRIMARY"], fg=COLORS["WHITE"], command=win.destroy, padx=10, pady=6, radius=8).pack(pady=(0, 12))
+
+        my_items_btn = RoundButton(bar, "My Items", fill=COLORS["PRIMARY"], fg=COLORS["WHITE"], command=_show_inventory_popup, padx=12, pady=6, radius=10)
+        my_items_btn.pack(side="right", padx=(0, 8))
+
 
         # Load token definitions
         tokens = []
@@ -172,15 +264,21 @@ class JournalPanel(tk.Frame):
 
         def _buy(tok):
             try:
-                from shop.currency import add_coins
+                from shop.currency import add_coins, add_shards
                 cost = int(tok.get("cost_amount") or 0)
-                currency = (tok.get("cost_currency") or "coins").lower()
-                if currency != "coins":
-                    messagebox.showinfo("Shop", "Only coins supported for now.", parent=self)
-                    return
-                applied = add_coins(-cost)
-                if applied == 0:
-                    messagebox.showinfo("Shop", "Not enough coins.", parent=self)
+                currency = (tok.get("cost_currency") or "coins").strip().lower()
+                if "shard" in currency:
+                    applied = add_shards(-cost)
+                    if applied == 0:
+                        messagebox.showinfo("Shop", "Not enough shards.", parent=self)
+                        return
+                elif "coin" in currency:
+                    applied = add_coins(-cost)
+                    if applied == 0:
+                        messagebox.showinfo("Shop", "Not enough coins.", parent=self)
+                        return
+                else:
+                    messagebox.showinfo("Shop", f"Currency '{currency}' not supported.", parent=self)
                     return
                 # persist
                 items = []
@@ -194,7 +292,23 @@ class JournalPanel(tk.Frame):
                     "category": tok.get("category"),
                     "bought_at": str(date.today())
                 })
+
                 inv_path.write_text(json.dumps(items), encoding="utf-8")
+
+                # Play bought sound effect
+                try:
+                    from sound import play_sfx
+                    play_sfx("soundeffects/bought.mp3")
+                except Exception:
+                    pass
+
+                # Update currency display if method exists
+                try:
+                    if hasattr(self.master, "update_currency_display"):
+                        self.master.update_currency_display()
+                except Exception:
+                    pass
+
                 messagebox.showinfo("Shop", f"Bought {tok.get('item')}", parent=self)
 
                 # Find the slot for this token
@@ -241,10 +355,20 @@ class JournalPanel(tk.Frame):
                 info.transient(self)
                 info.title(t.get("item") or "Token")
                 info.configure(bg=COLORS.get("CARD", "#fff"))
+                # Show icon if available
+                cat_norm = (t.get("category") or "").strip().lower()
+                img = self._icon_by_category.get(cat_norm)
+                if not img:
+                    idx = abs(hash(cat_norm)) % max(1, len(self._icon_list))
+                    img = self._icon_list[idx]
+                if img:
+                    icon_lbl = tk.Label(info, image=img, bg=COLORS.get("CARD", "#fff"))
+                    icon_lbl.image = img
+                    icon_lbl.pack(pady=(12, 0))
                 txt = t.get("description") or t.get("details") or t.get("item") or "No description available."
                 tk.Label(info, text=txt, wraplength=320,
                          bg=COLORS.get("CARD", "#fff"),
-                         fg=COLORS.get("TEXT", "#000")).pack(padx=12, pady=12)
+                         fg=COLORS.get("TEXT", "#000"), font=(None, 11)).pack(padx=12, pady=12)
                 RoundButton(info, "Close", fill=COLORS["PRIMARY"], fg=COLORS["WHITE"],
                             command=info.destroy, padx=10, pady=6, radius=8).pack(pady=(0, 12))
                 try:
@@ -259,27 +383,27 @@ class JournalPanel(tk.Frame):
 
         def _make_slot(idx, initial_tok=None):
             frm = tk.Frame(self._shop_row, bg=COLORS["CARD"], bd=0)
-            frm.pack(side="left", padx=8)
+            frm.pack(side="left", padx=4)
 
-            holder = tk.Frame(frm, width=170, height=150, bg=COLORS["CARD"])
+            holder = tk.Frame(frm, width=96, height=80, bg=COLORS["CARD"])
             holder.pack()
             holder.pack_propagate(False)
 
             # placeholder glyph so area is visible before image loads
-            ph = tk.Label(holder, text="◇", font=(None, 20),
+            ph = tk.Label(holder, text="◇", font=(None, 12),
                           bg=COLORS["CARD"], fg=COLORS["MUTED"])
             ph.place(relx=0.5, rely=0.5, anchor='center')
 
-            item_lbl  = tk.Label(frm, text="", bg=COLORS["CARD"], fg=COLORS["TEXT"]); item_lbl.pack()
-            dur_lbl   = tk.Label(frm, text="", bg=COLORS["CARD"], fg=COLORS["MUTED"], font=FONTS["small"]); dur_lbl.pack()
-            timer_lbl = tk.Label(frm, text="", bg=COLORS["CARD"], fg=COLORS["PRIMARY"], font=FONTS["small"]); timer_lbl.pack()
+            item_lbl  = tk.Label(frm, text="", bg=COLORS["CARD"], fg=COLORS["TEXT"], font=(None, 9, "bold")); item_lbl.pack()
+            dur_lbl   = tk.Label(frm, text="", bg=COLORS["CARD"], fg=COLORS["MUTED"], font=(None, 8)); dur_lbl.pack()
+            timer_lbl = tk.Label(frm, text="", bg=COLORS["CARD"], fg=COLORS["PRIMARY"], font=(None, 8)); timer_lbl.pack()
 
             buy_btn = RoundButton(frm, "Buy",
                                   fill=COLORS["PRIMARY"],
                                   hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
-                                  fg=COLORS["WHITE"], padx=10, pady=6, radius=10,
+                                  fg=COLORS["WHITE"], padx=6, pady=3, radius=8,
                                   command=lambda: None)
-            buy_btn.pack(pady=(6, 0))
+            buy_btn.pack(pady=(4, 0))
 
             slot = {
                 "idx": idx, "frame": frm, "holder": holder,
@@ -316,7 +440,20 @@ class JournalPanel(tk.Frame):
                 slot["expires_at"] = datetime.now() + timedelta(seconds=random.choice([3600, 5*3600, 2*24*3600]))
 
             # labels + buy
-            slot["item_lbl"].config(text="")  # avoid duplicate/truncated title under the icon
+            # Show cost with currency icon
+            cost = tok.get("cost_amount", "")
+            currency = (tok.get("cost_currency") or "Coins").strip().lower()
+            icon = None
+            if "shard" in currency:
+                icon = self._currency_icons.get("shard")
+            elif "coin" in currency:
+                icon = self._currency_icons.get("coin")
+            # Compose label with icon and text
+            if icon:
+                slot["item_lbl"].config(image=icon, compound="left", text=f" {cost}", font=(None, 11, "bold"), fg=COLORS["TEXT"], bg=COLORS["CARD"])
+                slot["item_lbl"].image = icon
+            else:
+                slot["item_lbl"].config(text=f"{cost} {currency.title()}", image="", font=(None, 11, "bold"), fg=COLORS["TEXT"], bg=COLORS["CARD"])
             slot["dur_lbl"].config(text=f"{tok.get('duration','')}")
             self._rebind_buy_button(slot, tok, _buy)
 
@@ -338,7 +475,7 @@ class JournalPanel(tk.Frame):
                 W = int(slot["holder"].cget("width"))
                 H = int(slot["holder"].cget("height"))
             except Exception:
-                W, H = 170, 150
+                W, H = 96, 80
 
 
             if img:
@@ -371,23 +508,23 @@ class JournalPanel(tk.Frame):
 
                 # Name badge inside the same frame (centered, wrapped)
                 name = (tok.get("item") or "")
-                short = name if len(name) <= 40 else name[:38] + "…"
+                short = name if len(name) <= 24 else name[:22] + "…"
                 badge = tk.Label(
                     img_frame,
                     text=short,
                     bg=COLORS["CARD"],
                     fg=COLORS.get("TEXT", "#000"),
-                    font=(None, 11, "bold"),
+                    font=(None, 8, "bold"),
                     anchor="center",
                     justify="center",
-                    wraplength=W - 16,   # keep inside holder
-                    padx=6
+                    wraplength=W - 8,   # keep inside holder
+                    padx=3
                 )
-                badge.pack(side="bottom", anchor="center", pady=(4, 10), fill="x")
+                badge.pack(side="bottom", anchor="center", pady=(2, 4), fill="x")
                 slot["name_badge"] = badge
 
                 # Gentle bob for the whole frame (keeps image+badge together)
-                img_frame._phase = 0.0
+                img_frame._phase = random.uniform(0, 2 * math.pi)  # randomize phase for out-of-sync bob
                 amplitude = max(3, min(10, (H - 100) // 3))  # stay within holder
                 step_ms = 80
                 def _bob(widget):

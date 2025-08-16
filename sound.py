@@ -16,6 +16,7 @@ SFX_FILES = {
     "levelUp":   "levelUp.mp3",
     "statsDown": "statsDown.mp3",
     "statsUp":   "statsUp.mp3",
+    "bought":    "bought.mp3",
 }
 
 # Resolve ./soundeffects/<file>
@@ -58,6 +59,9 @@ def play_sfx(name: str):
         return
     """Play a short effect asynchronously. Silently no-ops if unavailable."""
     fp = _file_path(name)
+    # If not found in SFX_FILES, treat as direct file path (e.g., 'soundeffects/bought.mp3')
+    if not fp and os.path.exists(name):
+        fp = name
     if not fp:
         return
     try:
