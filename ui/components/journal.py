@@ -145,12 +145,69 @@ class JournalPanel(tk.Frame):
 
 
         # ---------- Shop area ----------
+
         shop_frame = tk.Frame(self, bg=COLORS["CARD"], bd=0)
         shop_frame.pack(fill="x", padx=12, pady=(6, 12))
 
         tk.Label(shop_frame, text="Shop", font=FONTS["h3"], bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(anchor="w")
+
+        # --- Shopkeeper sprite (left of the shop items) ---
+        self._shopkeeper_frames = []
+        self._shopkeeper_canvas = None
+        self._shopkeeper_img_id = None
+        sprite_path = (Path(__file__).resolve().parents[2] / "Npc_Shop" / "idle.png")
+
+        def _load_shopkeeper_frames():
+            try:
+                from PIL import Image, ImageTk
+                if not sprite_path.exists():
+                    print(f"[shopkeeper] sprite not found: {sprite_path}")
+                    return [], 0, 0
+                sheet = Image.open(sprite_path).convert("RGBA")
+                sw, sh = sheet.size
+                cols, rows = 2, 4
+                fw, fh = sw // cols, sh // rows
+                col = 0
+                target_h = 96
+                scale = target_h / fh
+                target_w = int(fw * scale)
+                frames = []
+                for r in range(rows):
+                    box = (col * fw, r * fh, (col + 1) * fw, (r + 1) * fh)
+                    fr = sheet.crop(box).resize((target_w, target_h), Image.NEAREST)
+                    frames.append(ImageTk.PhotoImage(fr))
+                return frames, target_w, target_h
+            except Exception as e:
+                print(f"[shopkeeper] failed to load frames: {e}")
+                return [], 0, 0
+
+        self._shopkeeper_frames, _w, _h = _load_shopkeeper_frames()
+
+        # Everything (slots and shopkeeper) in one row
         self._shop_row = tk.Frame(shop_frame, bg=COLORS["CARD"])
         self._shop_row.pack(fill="x", pady=(6, 0))
+
+        # After slots are created, add the shopkeeper to the right
+        def add_shopkeeper_to_row():
+            if self._shopkeeper_frames:
+                self._shopkeeper_canvas = tk.Canvas(
+                    self._shop_row, width=_w, height=_h,
+                    bg=COLORS["CARD"], highlightthickness=0, bd=0
+                )
+                self._shopkeeper_canvas.pack(side="left", padx=(16, 0))
+                self._shopkeeper_img_id = self._shopkeeper_canvas.create_image(
+                    _w // 2, _h // 2, image=self._shopkeeper_frames[0]
+                )
+                def _animate(i=0):
+                    if not self._shopkeeper_frames:
+                        return
+                    i = (i + 1) % len(self._shopkeeper_frames)
+                    self._shopkeeper_canvas.itemconfig(self._shopkeeper_img_id, image=self._shopkeeper_frames[i])
+                    self.after(300, _animate, i)  # slower: 300ms per frame
+                _animate()
+            else:
+                tk.Label(self._shop_row, text="Shop\nkeeper", bg=COLORS["CARD"], fg=COLORS["TEXT"], font=FONTS["small"]).pack(side="left", padx=(16, 0))
+        # Call this after slots are created (see slot creation code below)
 
 
 
@@ -590,6 +647,7 @@ class JournalPanel(tk.Frame):
         # create up to 3 visible slots, try to restore previous state
         visible = min(3, max(1, len(tokens))) or 3
         saved = _load_slots_state()
+
         for i in range(visible):
             slot = _make_slot(i)
             restored = None
@@ -607,6 +665,9 @@ class JournalPanel(tk.Frame):
                 elif tokens:
                     _assign_token_to_slot(slot, random.choice(tokens))
             self._shop_slots.append(slot)
+
+        # Add the shopkeeper sprite to the right of the last slot
+        add_shopkeeper_to_row()
 
         def _update_timers():
             now = datetime.now()
