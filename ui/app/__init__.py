@@ -190,32 +190,6 @@ class HabitTrackerApp:
             pass
 
     # ---------- Shop / Items UI ----------
-    def show_items(self):
-        # simple inventory viewer stored in data/shop_inventory.json
-        import json
-        inv_path = Path("data/shop_inventory.json")
-        items = []
-        if inv_path.exists():
-            try:
-                items = json.loads(inv_path.read_text(encoding="utf-8") or "[]")
-            except Exception:
-                items = []
-
-        win = tk.Toplevel(self.root)
-        win.title("Items")
-        win.configure(bg=COLORS["BG"])
-        win.geometry("420x320")
-        win.grab_set()
-
-        tk.Label(win, text="Owned Items", font=FONTS["h2"], bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(pady=(12,8))
-        body = tk.Frame(win, bg=COLORS["CARD"])
-        body.pack(fill="both", expand=True, padx=12, pady=8)
-
-        if not items:
-            tk.Label(body, text="No items owned.", bg=COLORS["CARD"], fg=COLORS["MUTED"]).pack(padx=8, pady=8)
-        else:
-            for it in items:
-                tk.Label(body, text=it.get("item","?"), bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(anchor="w", padx=8, pady=4)
 
     def _get_challenge_pool(self):
         # cache so we don’t re-read the file every click
@@ -305,7 +279,6 @@ class HabitTrackerApp:
                 on_today=self.go_to_today,                  
                 on_random_challenge=self.open_random_challenge,
                 on_logger=self.open_logger,
-                on_items=self.show_items,
             )
         except TypeError:
             self.actions = ActionsBar(

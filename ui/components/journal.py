@@ -469,8 +469,7 @@ class JournalPanel(tk.Frame):
                 "tok": None, "expires_at": None,
             }
 
-            frm.bind("<Button-1>", lambda e, s=slot: _show_slot_info(s))
-            frm.config(cursor="hand2")
+            # No click-to-show-info handler; only hover tooltip is active
 
             if initial_tok:
                 _assign_token_to_slot(slot, initial_tok)
@@ -496,6 +495,7 @@ class JournalPanel(tk.Frame):
             except Exception:
                 slot["expires_at"] = datetime.now() + timedelta(seconds=random.choice([3600, 5*3600, 2*24*3600]))
 
+
             # labels + buy
             # Show cost with currency icon
             cost = tok.get("cost_amount", "")
@@ -513,6 +513,24 @@ class JournalPanel(tk.Frame):
                 slot["item_lbl"].config(text=f"{cost} {currency.title()}", image="", font=(None, 11, "bold"), fg=COLORS["TEXT"], bg=COLORS["CARD"])
             slot["dur_lbl"].config(text=f"{tok.get('duration','')}")
             self._rebind_buy_button(slot, tok, _buy)
+
+            # --- Tooltip for effect on hover ---
+            effect = tok.get("effect") or ""
+            tooltip = None
+            def show_tooltip(event):
+                nonlocal tooltip
+                if effect:
+                    x = event.x_root - self.winfo_rootx() + 20
+                    y = event.y_root - self.winfo_rooty() + 10
+                    tooltip = tk.Label(self, text=effect, bg=COLORS.get("CARD", "#fff"), fg=COLORS.get("PRIMARY", "#00f"), font=(None, 14, "bold italic"), bd=1, relief="solid", wraplength=260)
+                    tooltip.place(x=x, y=y)
+            def hide_tooltip(event):
+                nonlocal tooltip
+                if tooltip:
+                    tooltip.destroy()
+                    tooltip = None
+            slot["frame"].bind("<Enter>", show_tooltip)
+            slot["frame"].bind("<Leave>", hide_tooltip)
 
             # clear holder
             for child in slot["holder"].winfo_children():
@@ -556,12 +574,7 @@ class JournalPanel(tk.Frame):
                 lbl = tk.Label(img_frame, image=img, bg=COLORS["CARD"], bd=0, padx=0, pady=0, width=img.width(), height=img.height())
                 lbl.image = img
                 lbl.pack(side="top", anchor="center", pady=(8, 0))
-                # Make the image itself clickable
-                try:
-                    lbl.bind("<Button-1>", _wrapped_on_click)
-                    lbl.config(cursor="hand2")
-                except Exception:
-                    pass
+                # No click handler for the image itself; only hover tooltip is active
 
                 # Name badge inside the same frame (centered, wrapped)
                 name = (tok.get("item") or "")
@@ -601,39 +614,7 @@ class JournalPanel(tk.Frame):
                 blank.place(relx=0.5, rely=0.5, anchor='center')
                 slot["img_label"] = blank
 
-            # click handlers (don’t steal clicks from Buy)
-            def _on_click(event=None, t=tok, s=slot):
-                _show_slot_info(s)
-            def _wrapped_on_click(event=None, t=tok, s=slot):
-                try:
-                    if event is not None and hasattr(event, "widget"):
-                        w = event.widget
-                        if w == s.get("buy_btn") or getattr(w, "master", None) == s.get("buy_btn"):
-                            return
-                except Exception:
-                    pass
-                return _on_click(event, t, s)
-
-            try:
-                slot["frame"].bind("<Button-1>", _wrapped_on_click)
-                slot["frame"].config(cursor="hand2")
-            except Exception:
-                pass
-            if slot.get("img_label"):
-                try:
-                    slot["img_label"].bind("<Button-1>", _wrapped_on_click)
-                except Exception:
-                    pass
-            try:
-                slot["holder"].bind("<Button-1>", _wrapped_on_click)
-                slot["holder"].config(cursor="hand2")
-            except Exception:
-                pass
-            try:
-                slot["item_lbl"].bind("<Button-1>", _wrapped_on_click)
-                slot["item_lbl"].config(cursor="hand2")
-            except Exception:
-                pass
+            # No click-to-show-info handlers; only hover tooltip is active
 
             _save_slots_state()
 
