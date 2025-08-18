@@ -25,14 +25,23 @@ def _human_summary(total: int, done: int, xp: int) -> str:
     misses = total - done
     return f"{done}/{total} done, {misses} missed → {xp:+d} XP"
 
+from shop.effects import effects
 def _compute_xp(total: int, done: int) -> int:
     if total <= 0:
         return 0
     if done == total:
-        return total * REWARD_PER_TASK
+        # Apply logger full bonus if available
+        base = total * REWARD_PER_TASK
+        bonus_pct = effects.logger_full_bonus_pct()
+        return int(round(base * (1 + bonus_pct)))
     # strict: any miss yields a penalty proportional to misses
     misses = total - done
-    return -misses * PENALTY_PER_MISS
+    base_penalty = -misses * PENALTY_PER_MISS
+    # Apply logger penalty buffer if available
+    buffer_pct = effects.logger_penalty_buffer_pct()
+    if buffer_pct > 0:
+        base_penalty = int(round(base_penalty * (1 - buffer_pct)))
+    return base_penalty
 
 def open_logger(self):
     """Toplevel UI: Today (checklist + Apply) / Plan Tomorrow (add & manage)."""

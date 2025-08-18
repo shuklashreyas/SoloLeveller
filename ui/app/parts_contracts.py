@@ -105,6 +105,7 @@ def open_contracts(self):
                         refresh_views()
                         return
 
+
                     pen = int(target.get("penalty_xp", 100))
                     already = int(target.get("penalty_applied", 0)) == 1
 
@@ -113,6 +114,10 @@ def open_contracts(self):
 
                     if not already:
                         from exp_system import add_total_xp
+                        from shop.effects import effects
+                        # Use contract shield if available
+                        if effects.consume_contract_shield():
+                            pen = int(round(pen * 0.5))
                         add_total_xp(-abs(pen) * 10)  # same scale as entries (pts*10)
                         mark_contract_penalty_applied(cid)
                         try:

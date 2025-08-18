@@ -38,6 +38,7 @@ from exp_system import (
     xp_to_next, level_from_xp, xp_in_level,
     get_total_xp, add_total_xp, average_stat, compute_rank
 )
+from shop.effects import effects
 from widgets import RoundButton
 from quiz import BaselineQuiz
 from shop.currency import init as init_currency, add_coins, get_coins, get_coins_today, get_shards
@@ -639,6 +640,10 @@ class HabitTrackerApp:
         reward_pts_eff = reward_pts * mult
         penalty_pts_eff = penalty_pts * mult
 
+        # Check for contract focus (for XP boosts)
+        has_contract = False  # TODO: wire up if contract for trait is active
+        is_dd = bool(dd and dd.get("atone") == trait)
+
         win = tk.Toplevel(self.root)
         win.title("Random Challenge")
         win.configure(bg=COLORS["BG"])
@@ -735,10 +740,18 @@ class HabitTrackerApp:
             except Exception:
                 pass
 
-            # XP
+            # XP with effects engine
             try:
+                base_xp = reward_pts_eff * 10
+                xp = effects.xp_after_boosts(
+                    base_xp,
+                    trait=trait,
+                    has_contract_for_trait=has_contract,
+                    is_random_challenge=True,
+                    is_daily_double=is_dd
+                )
                 before = level_from_xp(get_total_xp())
-                after_total = add_total_xp(reward_pts_eff * 10)
+                after_total = add_total_xp(xp)
                 after = level_from_xp(after_total)
                 if after > before:
                     try:
@@ -767,8 +780,14 @@ class HabitTrackerApp:
             today_iso = date.today().isoformat()
             try:
                 # Log as a fail; decrement same trait to keep it intuitive
-                insert_entry(today_iso, "SIN", f"Challenge fail ({trait})", f"Failed: {title}", -penalty_pts_eff)
-                update_attribute_score(trait, -penalty_pts_eff)
+                # Use effects engine for penalty reduction
+                reduced_penalty = effects.reduce_sin_penalty(
+                    sin_name="Challenge fail",
+                    mapped_trait=trait,
+                    penalty_points=penalty_pts_eff
+                )
+                insert_entry(today_iso, "SIN", f"Challenge fail ({trait})", f"Failed: {title}", -reduced_penalty)
+                update_attribute_score(trait, -reduced_penalty)
             except Exception:
                 pass
 

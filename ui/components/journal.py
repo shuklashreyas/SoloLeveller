@@ -144,72 +144,130 @@ class JournalPanel(tk.Frame):
         self.save_btn.pack(side="right")
 
 
-        # ---------- Shop area ----------
+        # ---------- Active Boosts/Effects Bar ----------
+        from shop.effects import effects
+        def _get_active_boosts():
+            state = effects.dump().get("active", {})
+            boosts = []
+            # XP global
+            if state.get("xp_global", 0) > 0:
+                boosts.append(f"+{int(state['xp_global']*100)}% XP (all Atones)")
+            # Trait boosts
+            for trait, pct in state.get("xp_trait", {}).items():
+                if pct > 0:
+                    boosts.append(f"+{int(pct*100)}% XP to {trait}")
+            # Contract focus
+            if state.get("contract_focus", 0) > 0:
+                boosts.append(f"+{int(state['contract_focus']*100)}% XP (contract trait)")
+            # Streak
+            if state.get("streak_plus", 0) > 0:
+                boosts.append(f"+{state['streak_plus']:.2f} streak multiplier")
+            # Daily Double
+            if state.get("dd_xp_bonus", 0) > 0:
+                boosts.append(f"+{state['dd_xp_bonus']:.2f}× Daily Double XP")
+            # Logger
+            if state.get("logger_full_bonus", 0) > 0:
+                boosts.append(f"+{int(state['logger_full_bonus']*100)}% Logger full bonus")
+            # Challenge
+            if state.get("challenge_xp", 0) > 0:
+                boosts.append(f"+{int(state['challenge_xp']*100)}% Random Challenge XP")
+            # Sin penalty reductions
+            for trait, pct in state.get("sin_trait_reduce", {}).items():
+                if pct > 0:
+                    boosts.append(f"-{int(pct*100)}% {trait} Sin penalty")
+            # Wrath
+            if state.get("wrath_halved", False):
+                boosts.append("Wrath penalties halved")
+            # Gentle landing
+            if state.get("gentle_landing_charges", 0) > 0:
+                boosts.append(f"Gentle Landing: {state['gentle_landing_charges']} left")
+            # Contract shield
+            if state.get("contract_shields", 0) > 0:
+                boosts.append(f"Contract Shield: {state['contract_shields']} left")
+            # Offer beacon
+            if state.get("offer_beacons", 0) > 0:
+                boosts.append(f"Offer Beacon: {state['offer_beacons']} left")
+            # Rerolls
+            if state.get("dd_rerolls", 0) > 0:
+                boosts.append(f"Daily Double Reroll: {state['dd_rerolls']} left")
+            if state.get("challenge_rerolls", 0) > 0:
+                boosts.append(f"Challenge Reroll: {state['challenge_rerolls']} left")
+            # Time cushion
+            if state.get("challenge_time_cushion", 0) > 0:
+                boosts.append(f"+{int(state['challenge_time_cushion']//60)} min challenge timer")
+            # Safe decline
+            if state.get("challenge_safe_decline", 0) > 0:
+                boosts.append(f"Safe Decline: {state['challenge_safe_decline']} left")
+            # Logger penalty buffer
+            if state.get("logger_penalty_buffer", 0) > 0:
+                boosts.append(f"-{int(state['logger_penalty_buffer']*100)}% Logger penalty")
+            return boosts
 
+        boosts = _get_active_boosts()
+        if boosts:
+            # Modern pill/badge style bar
+            bar_bg = COLORS.get("BG", "#f8f8fa")
+            pill_bg = COLORS.get("ACCENT", "#f5e663")
+            pill_fg = COLORS.get("TEXT", "#222")
+            boost_bar = tk.Frame(self, bg=bar_bg, bd=0, highlightthickness=0)
+            boost_bar.pack(fill="x", padx=16, pady=(10, 0))
+            label = tk.Label(boost_bar, text="Active Effects:", font=FONTS["small"], bg=bar_bg, fg=pill_fg)
+            label.pack(side="left", padx=(8, 0), pady=6)
+            for b in boosts:
+                pill = tk.Label(
+                    boost_bar, text=b, font=FONTS["small"],
+                    bg=pill_bg, fg=pill_fg,
+                    padx=12, pady=4,
+                    borderwidth=0, relief="flat"
+                )
+                # Rounded corners (simulate with padding and border)
+                pill.pack(side="left", padx=6, pady=4)
+                pill.configure(highlightbackground=pill_bg, highlightcolor=pill_bg, highlightthickness=1)
+
+        # ---------- Shop area ----------
         shop_frame = tk.Frame(self, bg=COLORS["CARD"], bd=0)
         shop_frame.pack(fill="x", padx=12, pady=(6, 12))
 
         tk.Label(shop_frame, text="Shop", font=FONTS["h3"], bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(anchor="w")
 
-        # --- Shopkeeper sprite (left of the shop items) ---
-        self._shopkeeper_frames = []
-        self._shopkeeper_canvas = None
-        self._shopkeeper_img_id = None
-        sprite_path = (Path(__file__).resolve().parents[2] / "Npc_Shop" / "idle.png")
+        # Shopkeeper idle animation (sprite sheet, right of tokens)
+        shop_row_outer = tk.Frame(shop_frame, bg=COLORS["CARD"])
+        shop_row_outer.pack(fill="x", pady=(6, 0))
 
-        def _load_shopkeeper_frames():
-            try:
-                from PIL import Image, ImageTk
-                if not sprite_path.exists():
-                    print(f"[shopkeeper] sprite not found: {sprite_path}")
-                    return [], 0, 0
-                sheet = Image.open(sprite_path).convert("RGBA")
-                sw, sh = sheet.size
-                cols, rows = 2, 4
-                fw, fh = sw // cols, sh // rows
-                col = 0
-                target_h = 96
-                scale = target_h / fh
-                target_w = int(fw * scale)
-                frames = []
-                for r in range(rows):
-                    box = (col * fw, r * fh, (col + 1) * fw, (r + 1) * fh)
-                    fr = sheet.crop(box).resize((target_w, target_h), Image.NEAREST)
-                    frames.append(ImageTk.PhotoImage(fr))
-                return frames, target_w, target_h
-            except Exception as e:
-                print(f"[shopkeeper] failed to load frames: {e}")
-                return [], 0, 0
+        self._shop_row = tk.Frame(shop_row_outer, bg=COLORS["CARD"])
+        self._shop_row.pack(side="left", fill="x", expand=True)
 
-        self._shopkeeper_frames, _w, _h = _load_shopkeeper_frames()
-
-        # Everything (slots and shopkeeper) in one row
-        self._shop_row = tk.Frame(shop_frame, bg=COLORS["CARD"])
-        self._shop_row.pack(fill="x", pady=(6, 0))
-
-        # After slots are created, add the shopkeeper to the right
-        def add_shopkeeper_to_row():
-            if self._shopkeeper_frames:
-                self._shopkeeper_canvas = tk.Canvas(
-                    self._shop_row, width=_w, height=_h,
-                    bg=COLORS["CARD"], highlightthickness=0, bd=0
-                )
-                self._shopkeeper_canvas.pack(side="left", padx=(16, 0))
-                self._shopkeeper_img_id = self._shopkeeper_canvas.create_image(
-                    _w // 2, _h // 2, image=self._shopkeeper_frames[0]
-                )
-                def _animate(i=0):
-                    if not self._shopkeeper_frames:
-                        return
-                    i = (i + 1) % len(self._shopkeeper_frames)
-                    self._shopkeeper_canvas.itemconfig(self._shopkeeper_img_id, image=self._shopkeeper_frames[i])
-                    self.after(300, _animate, i)  # slower: 300ms per frame
-                _animate()
+        # Animated shopkeeper sprite (right of tokens) with fallback error label
+        shopkeeper_error = False
+        try:
+            shopkeeper_path = Path(__file__).resolve().parents[2] / "Npc_Shop" / "idleshop.png"
+            if shopkeeper_path.exists():
+                sheet_img = tk.PhotoImage(file=str(shopkeeper_path))
+                frame_h = sheet_img.height()
+                frame_w = frame_h  # assume square frames
+                num_frames = sheet_img.width() // frame_w
+                if num_frames < 1 or sheet_img.width() % frame_w != 0:
+                    shopkeeper_error = True
+                else:
+                    frames = [sheet_img.subsample(1, 1).copy() for _ in range(num_frames)]
+                    for i in range(num_frames):
+                        frames[i] = sheet_img.subsample(1, 1).copy()
+                        frames[i].tk.call(frames[i], 'copy', sheet_img, '-from', i*frame_w, 0, (i+1)*frame_w, frame_h, 0, 0)
+                    self._live_images.extend(frames)
+                    anim_lbl = tk.Label(shop_row_outer, bg=COLORS["CARD"])
+                    anim_lbl.pack(side="left", padx=(16, 0), pady=2)
+                    def animate_shopkeeper(frame=0):
+                        anim_lbl.configure(image=frames[frame])
+                        next_frame = (frame + 1) % num_frames
+                        anim_lbl.after(120, animate_shopkeeper, next_frame)
+                    animate_shopkeeper()
             else:
-                tk.Label(self._shop_row, text="Shop\nkeeper", bg=COLORS["CARD"], fg=COLORS["TEXT"], font=FONTS["small"]).pack(side="left", padx=(16, 0))
-        # Call this after slots are created (see slot creation code below)
-
-
+                shopkeeper_error = True
+        except Exception as e:
+            print(f"[shopkeeper] Could not animate idle sprite: {e}")
+            shopkeeper_error = True
+        if shopkeeper_error:
+            tk.Label(shop_row_outer, text="[Shopkeeper sprite error]", font=FONTS["small"], fg="#a00", bg=COLORS["CARD"]).pack(side="left", padx=(16, 0), pady=2)
 
         # Place My Items button on the action bar (right, next to Save Journal)
         def _show_inventory_popup():
@@ -253,7 +311,29 @@ class JournalPanel(tk.Frame):
                                 tokens.append(r)
                 except Exception:
                     pass
-                for entry in items:
+
+                from shop.effects import effects
+
+                def apply_token_effect(token: dict):
+                    msg = effects.activate_from_token(token)
+                    messagebox.showinfo("Item used", msg, parent=self)
+
+                def use_token(idx):
+                    entry = items[idx]
+                    name = entry.get("item")
+                    tok  = next((t for t in tokens if t.get("item") == name), None)
+                    if tok:
+                        apply_token_effect(tok)
+                    # remove token from inventory after use
+                    del items[idx]
+                    try:
+                        inv_path.write_text(json.dumps(items), encoding="utf-8")
+                    except Exception as e:
+                        print(f"[inventory] failed to update: {e}")
+                    win.destroy()
+                    _show_inventory_popup()
+
+                for idx, entry in enumerate(items):
                     name = entry.get("item")
                     tok = next((t for t in tokens if t.get("item") == name), None)
                     if not tok:
@@ -261,8 +341,8 @@ class JournalPanel(tk.Frame):
                     cat_norm = (tok.get("category") or "").strip().lower()
                     img = self._icon_by_category.get(cat_norm)
                     if not img:
-                        idx = abs(hash(cat_norm)) % max(1, len(self._icon_list))
-                        img = self._icon_list[idx]
+                        idx_img = abs(hash(cat_norm)) % max(1, len(self._icon_list))
+                        img = self._icon_list[idx_img]
                     row = tk.Frame(scroll_frame, bg=COLORS["CARD"])
                     row.pack(fill="x", pady=2)
                     if img:
@@ -272,6 +352,7 @@ class JournalPanel(tk.Frame):
                     desc = tok.get("effect") or "No description."
                     tk.Label(row, text=name, font=(None, 11, "bold"), bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(side="left")
                     tk.Label(row, text=desc, font=(None, 10), bg=COLORS["CARD"], fg=COLORS["MUTED"], wraplength=260, justify="left").pack(side="left", padx=(8, 0))
+                    RoundButton(row, "Use Now", fill=COLORS["PRIMARY"], fg=COLORS["WHITE"], command=lambda i=idx: use_token(i), padx=8, pady=4, radius=8).pack(side="left", padx=(12, 0))
 
             RoundButton(win, "Close", fill=COLORS["PRIMARY"], fg=COLORS["WHITE"], command=win.destroy, padx=10, pady=6, radius=8).pack(pady=(0, 12))
 
@@ -648,7 +729,6 @@ class JournalPanel(tk.Frame):
             self._shop_slots.append(slot)
 
         # Add the shopkeeper sprite to the right of the last slot
-        add_shopkeeper_to_row()
 
         def _update_timers():
             now = datetime.now()

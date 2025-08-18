@@ -87,11 +87,15 @@ def update_streak_on_action():
         set_meta("streak_count", str(count))
         set_meta("streak_mult", f"{_streak_count_to_mult(count):.4f}")
 
+from shop.effects import effects
+
 def _streak_mult() -> float:
     try:
-        return float(get_meta("streak_mult") or "1.0")
+        base = float(get_meta("streak_mult") or "1.0")
     except Exception:
-        return 1.0
+        base = 1.0
+    # Add extra streak delta from effects engine
+    return base + effects.extra_streak_delta()
 
 # ---------- Soft caps / floors by current score ----------
 def _softcap_mult(score: int) -> float:
