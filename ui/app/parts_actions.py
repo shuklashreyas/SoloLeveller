@@ -65,7 +65,9 @@ def _handle_action(self, kind: str):
         set_daily_double(day, dd["atone"], dd["sin"])
 
     # Apply Daily Double to points (keeps SIN negative)
+    is_daily_double = False
     if (kind == "ATONE" and category == dd["atone"]) or (kind == "SIN" and category == dd["sin"]):
+        is_daily_double = True
         pts *= 2
 
     # Which positive trait moves?
@@ -107,12 +109,33 @@ def _handle_action(self, kind: str):
 
     # ===== XP with new rules =====
     trait_for_xp = changed_attr if changed_attr else category
-    xp_gain = compute_xp_gain(trait_for_xp, category, item_text, pts)
+    # Pass along whether this was the Daily Double so shop effects can modify DD XP
+    res = compute_xp_gain(trait_for_xp, category, item_text, pts, is_daily_double=is_daily_double)
+    # compute_xp_gain now returns (final_xp, boost_delta)
+    try:
+        xp_gain, boost_delta = res
+    except Exception:
+        xp_gain = int(res)
+        boost_delta = 0
     before_lvl = level_from_xp(get_total_xp())
     after_total = add_total_xp(xp_gain)
     after_lvl = level_from_xp(after_total)
 
-    self.refresh_all()
+    # Update UI and show boost delta on XP strip if available
+    try:
+        # refresh core data
+        self.refresh_all()
+        try:
+            if hasattr(self, 'xpstrip') and boost_delta:
+                # show +N XP in green
+                self.xpstrip.set_boost_info(f"+{boost_delta} XP")
+            else:
+                if hasattr(self, 'xpstrip'):
+                    self.xpstrip.set_boost_info(None)
+        except Exception:
+            pass
+    except Exception:
+        pass
 
     if after_lvl > before_lvl:
         try: play_sfx("levelUp")

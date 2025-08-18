@@ -1,5 +1,5 @@
 {
-  "day": "2025-08-17",
+  "active_date": "2025-08-18",
   "active": {
     "xp_global": 0.0,
     "xp_trait": {
@@ -8,21 +8,6 @@
     "contract_focus": 0.0,
     "streak_plus": 0.0,
     "dd_xp_bonus": 0.0,
-    "logger_full_bonus": 0.0,
-    "challenge_xp": 0.0,
-    "sin_trait_reduce": {},
-    "wrath_halved": false,
-    "gentle_landing_charges": 0,
-    "pardon_once": 0,
-    "slip_insurance": 0,
-    "dd_rerolls": 1,
-    "challenge_rerolls": 1,
-    "challenge_time_cushion": 0,
-    "challenge_safe_decline": 0,
-    "offer_beacons": 0,
-    "contract_shields": 0,
-    "grace_periods": 0,
-    "logger_task_doubler": 0,
-    "logger_penalty_buffer": 0.0
+    "challenge_xp": 0.0
   }
 }

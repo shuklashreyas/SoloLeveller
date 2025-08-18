@@ -159,7 +159,7 @@ def _contract_mult_for_trait(trait: str) -> float:
     return m
 
 # ---------- Public: compute XP ----------
-def compute_xp_gain(trait: str, category: str, item: str, pts: int) -> int:
+def compute_xp_gain(trait: str, category: str, item: str, pts: int, is_daily_double: bool = False):
     """
     Returns the *final* XP to add (already includes all multipliers).
     Accepts positive or negative pts (SIN stays negative).
@@ -184,12 +184,54 @@ def compute_xp_gain(trait: str, category: str, item: str, pts: int) -> int:
 
     # Keep sign of base_xp (SIN negative)
     final = int(round(base_xp * total_mult))
+
+    # Debug output to trace XP calculation before effects
+    try:
+        print(f"[xp.debug] base_xp={base_xp} prev_occurrences={prev} m_dim={m_dim:.4f} m_streak={m_streak:.4f} m_soft={m_soft:.4f} m_ctr={m_ctr:.4f} total_mult={total_mult:.4f} final_before_effects={final}")
+    except Exception:
+        pass
+
+    # If this is an ATONE (positive XP), allow shop effects (global/trait/contract/challenge/dd)
+    try:
+        from shop.effects import effects
+    except Exception:
+        effects = None
+
+    boost_delta = 0
+    if base_xp > 0 and effects is not None:
+        # effects.xp_after_boosts expects base_xp and trait name; it handles dd multiplier
+        try:
+            # Debug before delegating to effects
+            try:
+                print(f"[xp.debug] delegating to effects.xp_after_boosts with final_before={final} trait={trait} has_contract={(m_ctr>1.0)} is_random_challenge={(item.lower().find('challenge') != -1)} is_daily_double={is_daily_double}")
+            except Exception:
+                pass
+
+            final_with_effects = effects.xp_after_boosts(final, trait=trait, has_contract_for_trait=(m_ctr > 1.0),
+                                            is_random_challenge=(item.lower().find('challenge') != -1),
+                                            is_daily_double=is_daily_double)
+            # calculate boost delta applied by effects
+            try:
+                boost_delta = int(round(final_with_effects - final))
+            except Exception:
+                boost_delta = 0
+            final = final_with_effects
+            try:
+                print(f"[xp.debug] final_after_effects={final}")
+            except Exception:
+                pass
+        except Exception:
+            # fallback to computed final if effects call fails
+            final = int(round(base_xp * total_mult))
+
     # Optional floor: allow 0, but don't flip sign
     if base_xp > 0:
-        final = max(0, final)
+        final = max(0, int(final))
     else:
-        final = min(0, final)
-    return final
+        final = min(0, int(final))
+    # For callers that expect only an int, returning a tuple could break them.
+    # The main action path (`parts_actions._handle_action`) will unpack the tuple.
+    return final, boost_delta
 
 # ---------- Baselines (EMA) ----------
 def update_daily_emas_if_needed():
