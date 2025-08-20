@@ -117,7 +117,7 @@ class JournalPanel(tk.Frame):
         # Smaller text area (reduced height)
         self.text = tk.Text(
             self, height=3, wrap="word",
-            bg=COLORS["WHITE"], fg=COLORS["TEXT"],
+            bg=COLORS.get("CARD", "#fff"), fg=COLORS.get("CARD_TEXT", COLORS.get("TEXT")),
             highlightthickness=0, relief="flat", font=("Helvetica", 13),
             insertbackground=COLORS["PRIMARY"],
             insertwidth=2,

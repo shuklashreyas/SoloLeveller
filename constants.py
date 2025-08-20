@@ -113,6 +113,11 @@ def set_theme(name: str):
     COLORS["ACCENT_TEXT"]  = _best_fg_on(COLORS["ACCENT"])
     COLORS["CARD_TEXT"]    = _best_fg_on(COLORS["CARD"])
 
+    # Row backgrounds for list/tree views (gentle contrast from CARD)
+    # blend slightly toward BG so rows are visible on both light and dark themes
+    COLORS.setdefault("ROW_ODD", _blend_hex(COLORS["CARD"], COLORS["BG"], 0.06))
+    COLORS.setdefault("ROW_EVEN", _blend_hex(COLORS["CARD"], COLORS["BG"], 0.12))
+
     # Optional: hovers (keep if you already define them; these are safe fallbacks)
     COLORS.setdefault("PRIMARY_HOVER", COLORS["PRIMARY"])
     COLORS.setdefault("ACCENT_HOVER", COLORS["ACCENT"])

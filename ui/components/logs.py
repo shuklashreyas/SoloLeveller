@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import constants as const
 from constants import COLORS, FONTS
 
 class LogsPanel(tk.Frame):
@@ -34,9 +35,33 @@ class LogsPanel(tk.Frame):
         self.sinned.column("points", width=60, anchor="e")
         self.sinned.pack(fill="both", expand=True, pady=4)
 
+        # Themed row backgrounds for readability across light/dark themes
+        odd_bg = COLORS.get("ROW_ODD", "#FFFFFF")
+        even_bg = COLORS.get("ROW_EVEN", "#F8FAFC")
+
+        # Compute readable foregrounds specifically for each row background
+        try:
+            odd_fg = const._best_fg_on(odd_bg)
+        except Exception:
+            odd_fg = COLORS.get("CARD_TEXT", COLORS.get("TEXT"))
+        try:
+            even_fg = const._best_fg_on(even_bg)
+        except Exception:
+            even_fg = COLORS.get("CARD_TEXT", COLORS.get("TEXT"))
+
+        # Small ttk style so headings and treefield backgrounds match the theme
+        try:
+            style = ttk.Style()
+            style.configure("Themed.Treeview", background=COLORS.get("CARD", "#fff"), fieldbackground=COLORS.get("CARD", "#fff"), foreground=COLORS.get("CARD_TEXT", COLORS.get("TEXT")))
+            style.configure("Themed.Treeview.Heading", background=COLORS.get("PRIMARY", "#ccc"), foreground=const._best_fg_on(COLORS.get("PRIMARY", "#ccc")))
+            self.atone.configure(style="Themed.Treeview")
+            self.sinned.configure(style="Themed.Treeview")
+        except Exception:
+            pass
+
         for t in (self.atone, self.sinned):
-            t.tag_configure("odd", background="#FFFFFF")
-            t.tag_configure("even", background="#F8FAFC")
+            t.tag_configure("odd", background=odd_bg, foreground=odd_fg)
+            t.tag_configure("even", background=even_bg, foreground=even_fg)
 
     def load(self, records):
         for tree in (self.atone, self.sinned):
