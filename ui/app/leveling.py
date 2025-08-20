@@ -198,6 +198,7 @@ def compute_xp_gain(trait: str, category: str, item: str, pts: int, is_daily_dou
         effects = None
 
     boost_delta = 0
+    boost_pct = 0
     if base_xp > 0 and effects is not None:
         # effects.xp_after_boosts expects base_xp and trait name; it handles dd multiplier
         try:
@@ -210,11 +211,16 @@ def compute_xp_gain(trait: str, category: str, item: str, pts: int, is_daily_dou
             final_with_effects = effects.xp_after_boosts(final, trait=trait, has_contract_for_trait=(m_ctr > 1.0),
                                             is_random_challenge=(item.lower().find('challenge') != -1),
                                             is_daily_double=is_daily_double)
-            # calculate boost delta applied by effects
+            # calculate boost delta applied by effects (absolute XP) and percent
             try:
                 boost_delta = int(round(final_with_effects - final))
+                if final and final > 0:
+                    boost_pct = int(round((final_with_effects / float(final) - 1.0) * 100))
+                else:
+                    boost_pct = 0
             except Exception:
                 boost_delta = 0
+                boost_pct = 0
             final = final_with_effects
             try:
                 print(f"[xp.debug] final_after_effects={final}")
@@ -229,9 +235,8 @@ def compute_xp_gain(trait: str, category: str, item: str, pts: int, is_daily_dou
         final = max(0, int(final))
     else:
         final = min(0, int(final))
-    # For callers that expect only an int, returning a tuple could break them.
-    # The main action path (`parts_actions._handle_action`) will unpack the tuple.
-    return final, boost_delta
+    # Return final XP, absolute boost delta, and percent boost.
+    return final, boost_delta, boost_pct
 
 # ---------- Baselines (EMA) ----------
 def update_daily_emas_if_needed():

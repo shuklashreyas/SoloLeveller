@@ -740,19 +740,35 @@ class HabitTrackerApp:
             except Exception:
                 pass
 
-            # XP with effects engine
+            # XP with effects engine — use compute_xp_gain to get boost delta
             try:
-                base_xp = reward_pts_eff * 10
-                xp = effects.xp_after_boosts(
-                    base_xp,
-                    trait=trait,
-                    has_contract_for_trait=has_contract,
-                    is_random_challenge=True,
-                    is_daily_double=is_dd
-                )
+                from .leveling import compute_xp_gain
+                # compute_xp_gain will detect 'challenge' in the item string
+                xp_res = compute_xp_gain(trait, trait, f"Challenge: {title}", reward_pts_eff, is_daily_double=is_dd)
+                try:
+                    xp_gain, boost_delta, boost_pct = xp_res
+                except Exception:
+                    try:
+                        xp_gain, boost_delta = xp_res
+                        boost_pct = 0
+                    except Exception:
+                        xp_gain = int(xp_res)
+                        boost_delta = 0
+                        boost_pct = 0
+
                 before = level_from_xp(get_total_xp())
-                after_total = add_total_xp(xp)
+                after_total = add_total_xp(xp_gain)
                 after = level_from_xp(after_total)
+                try:
+                    if hasattr(self, 'xpstrip'):
+                        if boost_delta:
+                            self.xpstrip.set_boost_info(f"+{boost_delta} XP")
+                        elif boost_pct:
+                            self.xpstrip.set_boost_info(f"+{boost_pct}%")
+                        else:
+                            self.xpstrip.set_boost_info(None)
+                except Exception:
+                    pass
                 if after > before:
                     try:
                         play_sfx("levelUp")

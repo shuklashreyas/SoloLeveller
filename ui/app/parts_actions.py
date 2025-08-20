@@ -111,12 +111,17 @@ def _handle_action(self, kind: str):
     trait_for_xp = changed_attr if changed_attr else category
     # Pass along whether this was the Daily Double so shop effects can modify DD XP
     res = compute_xp_gain(trait_for_xp, category, item_text, pts, is_daily_double=is_daily_double)
-    # compute_xp_gain now returns (final_xp, boost_delta)
+    # compute_xp_gain now returns (final_xp, boost_delta, boost_pct)
     try:
-        xp_gain, boost_delta = res
+        xp_gain, boost_delta, boost_pct = res
     except Exception:
-        xp_gain = int(res)
-        boost_delta = 0
+        try:
+            xp_gain, boost_delta = res
+            boost_pct = 0
+        except Exception:
+            xp_gain = int(res)
+            boost_delta = 0
+            boost_pct = 0
     before_lvl = level_from_xp(get_total_xp())
     after_total = add_total_xp(xp_gain)
     after_lvl = level_from_xp(after_total)
@@ -126,11 +131,14 @@ def _handle_action(self, kind: str):
         # refresh core data
         self.refresh_all()
         try:
-            if hasattr(self, 'xpstrip') and boost_delta:
-                # show +N XP in green
-                self.xpstrip.set_boost_info(f"+{boost_delta} XP")
-            else:
-                if hasattr(self, 'xpstrip'):
+            if hasattr(self, 'xpstrip'):
+                if boost_delta:
+                    # show +N XP in green
+                    self.xpstrip.set_boost_info(f"+{boost_delta} XP")
+                elif boost_pct:
+                    # show percent if absolute delta rounds to 0
+                    self.xpstrip.set_boost_info(f"+{boost_pct}%")
+                else:
                     self.xpstrip.set_boost_info(None)
         except Exception:
             pass

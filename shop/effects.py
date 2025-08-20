@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import date
 import json
 from typing import Dict, Any, List
+from constants import POSITIVE_TRAITS
 from math import prod
 
 STATE_PATH = Path("data/shop_state.json")
@@ -45,6 +46,15 @@ class ShopEffects:
                 "streak_plus": 0.0,
                 "dd_xp_bonus": 0.0,
                 "challenge_xp": 0.0,
+                # extra features
+                "logger_full_bonus": 0.0,
+                "wrath_halved": False,
+                "gentle_landing_charges": 0,
+                "offer_beacons": 0,
+                "dd_rerolls": 0,
+                "challenge_rerolls": 0,
+                "challenge_time_cushion": 0,
+                "contract_shields": 0,
             },
         }
 
@@ -79,12 +89,79 @@ class ShopEffects:
         if cat != "boosts":
             return "Not a boost token"
 
-        if name.startswith("physical booster"):
-            self._set_trait_boost("Physical", 0.25)
-            return "+25% XP to Physical Atones (today)"
+        # Omni/global
         if name.startswith("omni booster"):
             self._set_global_boost(0.10)
             return "+10% XP to all Atones (today)"
+
+        # Trait-specific boosters (e.g. 'Spiritual Booster', 'Mindful Booster')
+        for trait in POSITIVE_TRAITS:
+            if name.startswith(f"{trait.lower()} booster"):
+                self._set_trait_boost(trait, 0.25)
+                return f"+25% XP to {trait} Atones (today)"
+
+        # legacy Physical Booster name
+        if name.startswith("physical booster"):
+            self._set_trait_boost("Physical", 0.25)
+            return "+25% XP to Physical Atones (today)"
+        # Contract focus booster
+        if name.startswith("contract focus booster"):
+            a = self._state.setdefault("active", {})
+            a["contract_focus"] = max(float(a.get("contract_focus", 0.0) or 0.0), 0.25)
+            self._save()
+            return "+25% XP when matching a contract (today)"
+        # Logger full booster
+        if name.startswith("logger full booster"):
+            a = self._state.setdefault("active", {})
+            a["logger_full_bonus"] = max(float(a.get("logger_full_bonus", 0.0) or 0.0), 0.20)
+            self._save()
+            return "+20% XP when logging a full journal (today)"
+        # Gentle landing (sin penalty reduction)
+        if name.startswith("gentle landing"):
+            a = self._state.setdefault("active", {})
+            a["gentle_landing_charges"] = max(int(a.get("gentle_landing_charges", 0) or 0), 1)
+            self._save()
+            return "Gentle Landing active: one reduced sin penalty available (today)"
+        # Wrath halver
+        if name.startswith("wrath halver"):
+            a = self._state.setdefault("active", {})
+            a["wrath_halved"] = True
+            self._save()
+            return "Wrath penalties halved (today)"
+        # Offer beacon
+        if name.startswith("offer beacon"):
+            a = self._state.setdefault("active", {})
+            a["offer_beacons"] = int(a.get("offer_beacons", 0) or 0) + 1
+            self._save()
+            return "+1 Offer Beacon (adds an offer)",
+        # Daily Double reroll
+        if name.startswith("daily double reroll"):
+            a = self._state.setdefault("active", {})
+            a["dd_rerolls"] = int(a.get("dd_rerolls", 0) or 0) + 1
+            self._save()
+            return "One extra Daily Double reroll available (today)"
+        # Challenge reroll
+        if name.startswith("challenge reroll"):
+            a = self._state.setdefault("active", {})
+            a["challenge_rerolls"] = int(a.get("challenge_rerolls", 0) or 0) + 1
+            self._save()
+            return "One extra Challenge reroll available (today)"
+        # Challenge time cushion
+        if name.startswith("challenge time cushion"):
+            a = self._state.setdefault("active", {})
+            a["challenge_time_cushion"] = max(int(a.get("challenge_time_cushion", 0) or 0), 300)
+            self._save()
+            return "+5 min added to challenge timers (today)"
+        # Contract shield
+        if name.startswith("contract shield"):
+            a = self._state.setdefault("active", {})
+            a["contract_shields"] = int(a.get("contract_shields", 0) or 0) + 1
+            self._save()
+            return "Contract shield granted (protects one contract today)"
+        # Small global XP multiplier
+        if name.startswith("xp multiplier small"):
+            self._set_global_boost(0.05)
+            return "+5% XP to all Atones (today)"
         if name.startswith("streak spark"):
             a = self._state.setdefault("active", {})
             a["streak_plus"] = max(float(a.get("streak_plus", 0.0) or 0.0), 0.10)

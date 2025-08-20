@@ -72,7 +72,6 @@ class JournalPanel(tk.Frame):
         def _load_png(fname, max_wh=48):
             p = images_dir / fname
             if not p.exists():
-                print(f"[shop.img] missing {p}")
                 return None
             try:
                 img = tk.PhotoImage(file=str(p))
@@ -85,10 +84,8 @@ class JournalPanel(tk.Frame):
                 except Exception:
                     pass
                 self._live_images.append(img)
-                print(f"[shop.img] loaded {fname} ({img.width()}x{img.height()})")
                 return img
-            except Exception as e:
-                print(f"[shop.img] fail {p}: {e}")
+            except Exception:
                 return None
 
         # Load the six token icons (some may be None if missing)
@@ -266,8 +263,8 @@ class JournalPanel(tk.Frame):
         except Exception as e:
             print(f"[shopkeeper] Could not animate idle sprite: {e}")
             shopkeeper_error = True
-        if shopkeeper_error:
-            tk.Label(shop_row_outer, text="[Shopkeeper sprite error]", font=FONTS["small"], fg="#a00", bg=COLORS["CARD"]).pack(side="left", padx=(16, 0), pady=2)
+    # If shopkeeper sprite is missing or failed, silently skip showing any error
+    # to avoid alarming users when the sprite asset is intentionally absent.
 
         # Place My Items button on the action bar (right, next to Save Journal)
         def _show_inventory_popup():
