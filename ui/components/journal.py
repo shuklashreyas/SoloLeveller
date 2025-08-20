@@ -212,6 +212,11 @@ class JournalPanel(tk.Frame):
             # Logger penalty buffer
             if state.get("logger_penalty_buffer", 0) > 0:
                 boosts.append(f"-{int(state['logger_penalty_buffer']*100)}% Logger penalty")
+            # Economy / currency effects
+            if state.get("coin_global_pct", 0) > 0:
+                boosts.append(f"+{int(state['coin_global_pct']*100)}% coins today")
+            if state.get("shard_weekly_bonus", 0) > 0:
+                boosts.append(f"Shard Spark: +{int(state['shard_weekly_bonus'])} weekly shard allowance")
             return boosts
 
         # populate initial boosts into the persistent container

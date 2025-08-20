@@ -73,8 +73,16 @@ def add_coins(amount: int) -> int:
     today = int(get_meta("coins_today") or 0)
 
     if amount >= 0:
+        # consult effects for coin multiplier
+        try:
+            from shop.effects import effects
+            mult_pct = float(effects.coin_multiplier_pct() or 0.0)
+        except Exception:
+            mult_pct = 0.0
+        # multiply the incoming amount by (1 + pct)
+        raw_amount = int(round(amount * (1.0 + mult_pct))) if mult_pct else amount
         allowed = max(0, COIN_DAILY_CAP - today)
-        apply_amt = min(allowed, amount)
+        apply_amt = min(allowed, raw_amount)
         total += apply_amt
         today += apply_amt
     else:
@@ -97,7 +105,13 @@ def add_shards(amount: int) -> int:
     week = int(get_meta("shards_week") or 0)
 
     if amount >= 0:
-        allowed = max(0, SHARD_WEEKLY_CAP - week)
+        # allow effects to increase weekly shard cap
+        try:
+            from shop.effects import effects
+            bonus = int(effects.shard_weekly_bonus() or 0)
+        except Exception:
+            bonus = 0
+        allowed = max(0, (SHARD_WEEKLY_CAP + bonus) - week)
         apply_amt = min(allowed, amount)
         total += apply_amt
         week += apply_amt

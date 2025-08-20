@@ -684,6 +684,44 @@ class HabitTrackerApp:
         btn_row = tk.Frame(win, bg=COLORS["BG"])
         btn_row.pack(pady=8)
 
+        # --- Challenge helpers (Time Cushion / Safe Decline) ---
+        helper_row = tk.Frame(win, bg=COLORS["BG"])
+        helper_row.pack(pady=(0, 6))
+        try:
+            from shop.effects import effects as _effects
+            cushion_avail = _effects.get_challenge_time_cushion()
+            safe_declines = _effects.get_challenge_safe_decline_count()
+        except Exception:
+            cushion_avail = 0
+            safe_declines = 0
+
+        def _use_time_cushion():
+            try:
+                # consume up to 300s and add to current timer
+                used = _effects.consume_challenge_time_cushion(300)
+                nonlocal seconds_left
+                seconds_left += used
+                try:
+                    timer_lbl.config(text=fmt(seconds_left))
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        def _use_safe_decline():
+            try:
+                ok = _effects.use_challenge_safe_decline()
+                if ok:
+                    # Close without penalty and do not spawn a new challenge
+                    stop_timer(); win.destroy();
+            except Exception:
+                pass
+
+        if cushion_avail > 0:
+            RoundButton(helper_row, f"Use Time Cushion (+{int(cushion_avail//60)}m)", fill=COLORS["ACCENT"], fg=COLORS["WHITE"], command=_use_time_cushion, padx=10, pady=6, radius=8).pack(side="left", padx=8)
+        if safe_declines > 0:
+            RoundButton(helper_row, f"Safe Decline ({safe_declines})", fill=COLORS["ACCENT"], fg=COLORS["WHITE"], command=_use_safe_decline, padx=10, pady=6, radius=8).pack(side="left", padx=8)
+
         # State for countdown
         seconds_left = minutes * 60
         ticking_id = {"id": None}

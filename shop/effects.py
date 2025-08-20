@@ -46,6 +46,9 @@ class ShopEffects:
                 "streak_plus": 0.0,
                 "dd_xp_bonus": 0.0,
                 "challenge_xp": 0.0,
+                # economy / currency effects
+                "coin_global_pct": 0.0,
+                "shard_weekly_bonus": 0,
                 # extra features
                 "logger_full_bonus": 0.0,
                 "logger_full_bonus_next": 0.0,
@@ -181,6 +184,19 @@ class ShopEffects:
             a["challenge_time_cushion"] = max(int(a.get("challenge_time_cushion", 0) or 0), 300)
             self._save()
             return "+5 min added to challenge timers (today)"
+        # Random Challenge Helpers aliases: allow 'time cushion' token naming
+        if name.startswith("time cushion"):
+            a = self._state.setdefault("active", {})
+            # Additive: each token grants +300s to the challenge cushion which challenge code may consume
+            a["challenge_time_cushion"] = int(a.get("challenge_time_cushion", 0) or 0) + 300
+            self._save()
+            return "+5 min added to current challenge timer"
+        # Safe Decline: allow declining a drawn challenge safely (one-time)
+        if name.startswith("safe decline"):
+            a = self._state.setdefault("active", {})
+            a["challenge_safe_decline"] = int(a.get("challenge_safe_decline", 0) or 0) + 1
+            self._save()
+            return "Safe Decline granted: decline a drawn challenge without penalty (one-time)"
         # Contract shield
         if name.startswith("contract shield"):
             a = self._state.setdefault("active", {})
@@ -191,6 +207,24 @@ class ShopEffects:
         if name.startswith("xp multiplier small"):
             self._set_global_boost(0.05)
             return "+5% XP to all Atones (today)"
+        # Economy & Conversion tokens
+        if name.startswith("coin drip booster"):
+            a = self._state.setdefault("active", {})
+            a["coin_global_pct"] = max(float(a.get("coin_global_pct", 0.0) or 0.0), 0.20)
+            self._save()
+            return "+20% coin earn today"
+        if name.startswith("shard spark"):
+            a = self._state.setdefault("active", {})
+            # immediate shard grant
+            a["shard_weekly_bonus"] = int(a.get("shard_weekly_bonus", 0) or 0) + 1
+            # also increment total shards (via currency manager) if available
+            try:
+                from shop.currency import add_shards
+                add_shards(1)
+            except Exception:
+                pass
+            self._save()
+            return "Shard Spark: granted 1 shard and +1 weekly shard allowance"
         if name.startswith("streak spark"):
             a = self._state.setdefault("active", {})
             a["streak_plus"] = max(float(a.get("streak_plus", 0.0) or 0.0), 0.10)
@@ -262,6 +296,15 @@ class ShopEffects:
             pass
 
         return int(round(final))
+
+    # Economy helpers
+    def coin_multiplier_pct(self) -> float:
+        a = self._state.get("active", {})
+        return float(a.get("coin_global_pct", 0.0) or 0.0)
+
+    def shard_weekly_bonus(self) -> int:
+        a = self._state.get("active", {})
+        return int(a.get("shard_weekly_bonus", 0) or 0)
 
     # --- Neglects / Sin penalty helpers ---
     def logger_penalty_buffer_pct(self) -> float:
@@ -373,6 +416,41 @@ class ShopEffects:
         if int(a.get("contract_shields", 0) or 0) > 0:
             a["contract_shields"] = int(a.get("contract_shields", 0)) - 1
             self._save()
+            return True
+        return False
+
+    # --- Challenge helpers accessors / consumers ---
+    def get_challenge_time_cushion(self) -> int:
+        a = self._state.get("active", {})
+        return int(a.get("challenge_time_cushion", 0) or 0)
+
+    def consume_challenge_time_cushion(self, seconds: int) -> int:
+        """Consume up to `seconds` from the stored cushion and return the actual seconds consumed."""
+        a = self._state.setdefault("active", {})
+        avail = int(a.get("challenge_time_cushion", 0) or 0)
+        if avail <= 0:
+            return 0
+        used = min(avail, int(seconds))
+        a["challenge_time_cushion"] = max(0, avail - used)
+        try:
+            self._save()
+        except Exception:
+            pass
+        return used
+
+    def get_challenge_safe_decline_count(self) -> int:
+        a = self._state.get("active", {})
+        return int(a.get("challenge_safe_decline", 0) or 0)
+
+    def use_challenge_safe_decline(self) -> bool:
+        a = self._state.setdefault("active", {})
+        cnt = int(a.get("challenge_safe_decline", 0) or 0)
+        if cnt > 0:
+            a["challenge_safe_decline"] = cnt - 1
+            try:
+                self._save()
+            except Exception:
+                pass
             return True
         return False
 

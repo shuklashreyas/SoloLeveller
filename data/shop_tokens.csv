@@ -22,7 +22,7 @@ Neglects,Gentle Landing,Next 3 Sins are reduced by 1 XP each,today,50,Coins,Char
 Neglects,Wrath Halver,Halve Wrath penalties today,today,1,Shards,Penalty reduction
 Neglects,Mindful Cushion,Sins mapped to Mindful lose 25% penalty today,today,45,Coins,Trait variants
 Neglects,One-Time Pardon,Erase one Sin entry (<= -2) once,today,1,Shards,Cannot erase Contract penalties
-Neglects,Slip Insurance,If you miss a day, streak halves (not resets),today,2,Shards,Consumed when triggered
+
 
 Contracts & Offers,Offer Beacon,+1 Offer Beacon (adds an offer),today,60,Coins,Cooldown 24h
 Contracts & Offers,Grace Period,Extend one active contract by +1 day,today,2,Shards,1x per contract
@@ -31,6 +31,15 @@ Contracts & Offers,Contract Shield,Next broken contract penalty reduced by 50%,t
 Logger,Task Doubler,One Logger task counts as two for bonus calc,today,40,Coins,Mark task at purchase
 Logger,Planner's Edge,Logger full-complete bonus +50% for tomorrow,tomorrow,60,Coins,Applies to next day
 Logger,Penalty Buffer,If <100% Logger completion, penalty reduced by 30%,today,45,Coins,One-time use
+
+Random Challenge Helpers,Challenge Reroll,Reroll once without penalty,once,1,Shards,Same category pool
+Random Challenge Helpers,Time Cushion,+5 minutes to current challenge timer,once,25,Coins,Once per challenge
+Random Challenge Helpers,Safe Decline,Decline a drawn challenge without spawning a new one,once,30,Coins,Fixes "decline -> new challenge" pressure
+
+Economy & Conversion,Coin Drip Booster,+20% coin earn today,today,30,Coins,Increase coin earnings today
+Economy & Conversion,Shard Spark,Grant one shard and +1 weekly shard allowance,once,1,Shards,Rare: grants shard and increases weekly cap by 1
+
+
 
 
 
