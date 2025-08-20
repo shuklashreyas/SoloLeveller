@@ -114,16 +114,36 @@ class JournalPanel(tk.Frame):
         )
         self.prompt_lbl.pack(side="right")
 
-        # Smaller text area (reduced height)
+        # Smaller text area (reduced height) inside a subtle framed border
+        text_frame = tk.Frame(self, bg=COLORS["CARD"])
+        # Use highlight to draw a thin border that adapts to theme muted color
+        try:
+            text_frame.configure(highlightbackground=COLORS.get("MUTED", "#94A3B8"), highlightthickness=1)
+        except Exception:
+            pass
+        text_frame.pack(fill="both", expand=True, padx=12, pady=(6, 8))
+
         self.text = tk.Text(
-            self, height=3, wrap="word",
+            text_frame, height=3, wrap="word",
             bg=COLORS.get("CARD", "#fff"), fg=COLORS.get("CARD_TEXT", COLORS.get("TEXT")),
             highlightthickness=0, relief="flat", font=("Helvetica", 13),
             insertbackground=COLORS["PRIMARY"],
             insertwidth=2,
             insertofftime=250, insertontime=600
         )
-        self.text.pack(fill="both", expand=True, padx=12, pady=(6, 8))
+        self.text.pack(fill="both", expand=True, padx=6, pady=6)
+
+        # Character counter under journal (e.g., "23/100")
+        self._char_limit = 100
+        self._char_var = tk.StringVar(value=f"0/{self._char_limit}")
+        self._char_lbl = tk.Label(self, textvariable=self._char_var, font=FONTS["small"], bg=COLORS["CARD"], fg=COLORS.get("MUTED", COLORS.get("TEXT")))
+        self._char_lbl.pack(anchor="e", padx=12, pady=(0, 6))
+
+        # Update counter live when user types
+        try:
+            self.text.bind("<KeyRelease>", lambda e: self._update_char_count())
+        except Exception:
+            pass
 
         # Action bar
         bar = tk.Frame(self, bg=COLORS["CARD"])
@@ -998,6 +1018,11 @@ class JournalPanel(tk.Frame):
         self.text.config(state="normal")
         self.text.delete("1.0", "end")
         self.text.insert("1.0", text or "")
+        # update char counter when text is programmatically set
+        try:
+            self._update_char_count()
+        except Exception:
+            pass
         if editable:
             self.text.config(state="normal")
             self.text.focus_set()
@@ -1011,6 +1036,18 @@ class JournalPanel(tk.Frame):
     def _save(self):
         content = self.text.get("1.0", "end-1c")
         self.on_save(content)
+
+    def _update_char_count(self):
+        try:
+            cnt = len(self.text.get("1.0", "end-1c"))
+            self._char_var.set(f"{cnt}/{self._char_limit}")
+        except Exception:
+            try:
+                # fallback: attempt to read from var if available
+                v = self._char_var.get() if hasattr(self, '_char_var') else "0/100"
+                self._char_var.set(v)
+            except Exception:
+                pass
 
     def note_saved(self):
         self.status_label.config(text="Saved.")
