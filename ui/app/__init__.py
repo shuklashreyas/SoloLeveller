@@ -834,6 +834,23 @@ class HabitTrackerApp:
                 play_sfx("statsUp")
             except Exception:
                 pass
+            # Currency rewards for completing a challenge
+            try:
+                from shop.currency import add_coins, add_shards
+                # award coins proportional to reward_pts_eff (e.g., 1 coin per 10 reward pts)
+                try:
+                    coins_to_award = max(1, int(round(reward_pts_eff / 10)))
+                    add_coins(coins_to_award)
+                except Exception:
+                    pass
+                # occasionally award shard (small chance) — if reward is high
+                try:
+                    if reward_pts_eff >= 100:
+                        add_shards(1)
+                except Exception:
+                    pass
+            except Exception:
+                pass
 
             self.refresh_all()
             messagebox.showinfo("Challenge", "Completed! Nice work.")

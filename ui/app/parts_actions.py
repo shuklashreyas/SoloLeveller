@@ -12,6 +12,7 @@ from database import (
     get_attributes, update_attribute_score, get_journal, upsert_journal, get_meta, set_meta
 )
 from exp_system import level_from_xp, get_total_xp, add_total_xp
+from shop.currency import add_coins, add_shards
 from widgets import RoundButton
 from ..dialogs import ask_action
 from sound import play_sfx
@@ -126,6 +127,18 @@ def _handle_action(self, kind: str):
     after_total = add_total_xp(xp_gain)
     after_lvl = level_from_xp(after_total)
 
+    # Currency rewards for ATONE (small coin reward)
+    try:
+        if kind == "ATONE":
+            # Assumption: award small coins proportional to points logged (20% of pts, min 1)
+            coins_awarded = max(1, int(abs(pts) * 0.2))
+            try:
+                add_coins(coins_awarded)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     # Update UI and show boost delta on XP strip if available
     try:
         # refresh core data
@@ -149,3 +162,17 @@ def _handle_action(self, kind: str):
         try: play_sfx("levelUp")
         except Exception: pass
         messagebox.showinfo("LEVEL UP!", f"You reached Level {after_lvl}!")
+        try:
+            # award coins for leveling up (10 coins per level)
+            lvl_delta = max(0, after_lvl - before_lvl)
+            if lvl_delta > 0:
+                try: add_coins(10 * lvl_delta)
+                except Exception: pass
+            # every 5 levels grant a shard
+            shards_now = after_lvl // 5
+            shards_before = before_lvl // 5
+            if shards_now > shards_before:
+                try: add_shards(shards_now - shards_before)
+                except Exception: pass
+        except Exception:
+            pass

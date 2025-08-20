@@ -8,6 +8,7 @@ from datetime import date, timedelta
 from constants import COLORS, FONTS
 from widgets import RoundButton
 from exp_system import add_total_xp, get_total_xp, level_from_xp
+from shop.currency import add_coins, add_shards
 from database import (
     add_nn_task, get_nn_tasks, set_nn_completed, delete_nn_task,
     nn_result_applied, set_nn_result_applied
@@ -147,6 +148,14 @@ def open_logger(self):
             before_lvl = level_from_xp(get_total_xp())
             add_total_xp(xp)
             set_nn_result_applied(today_s, xp)
+            # coin reward from logger completion: reward some coins (10% of XP)
+            try:
+                if xp > 0:
+                    coins = max(1, int(round(xp * 0.10)))
+                    try: add_coins(coins)
+                    except Exception: pass
+            except Exception:
+                pass
             message = ("Perfect! +" + str(xp) + " XP 🎉") if done == total else ("Applied " + str(xp) + " XP")
             messagebox.showinfo("Logger", message, parent=win)
             render_today()
