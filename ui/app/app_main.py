@@ -159,13 +159,7 @@ class HabitTrackerApp:
             init_currency()
         except Exception:
             pass
-        # For testing: seed large balance
-        try:
-            from shop.currency import set_coins_total, set_shards_total
-            set_coins_total(10000)
-            set_shards_total(5)
-        except Exception:
-            pass
+    # Do not seed test currency here; use persisted values from shop.currency.init()
         # track previous total xp for coin drip
         try:
             self._prev_total_xp = get_total_xp()

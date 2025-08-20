@@ -161,13 +161,9 @@ class HabitTrackerApp:
             init_currency()
         except Exception:
             pass
-        # For testing: seed large balance
-        try:
-            from shop.currency import set_coins_total, set_shards_total
-            set_coins_total(10000)
-            set_shards_total(5)
-        except Exception:
-            pass
+    # (No test seeding here) currency values are persisted via meta and
+    # initialized by shop.currency.init() above. Use update_currency_display()
+    # to refresh the topbar when currency changes.
         # track previous total xp for coin drip
         try:
             self._prev_total_xp = get_total_xp()
@@ -592,6 +588,17 @@ class HabitTrackerApp:
         try:
             if hasattr(self, "topbar"):
                 self.topbar.set_currency(get_coins(), get_shards())
+        except Exception:
+            pass
+
+    # API for other components to request a currency refresh
+    def update_currency_display(self):
+        try:
+            from shop.currency import get_coins, get_shards
+            coins = get_coins()
+            shards = get_shards()
+            try: self.topbar.set_currency(coins, shards)
+            except Exception: pass
         except Exception:
             pass
 
