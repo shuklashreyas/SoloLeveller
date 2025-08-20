@@ -10,22 +10,33 @@ SoloLeveller turns personal growth into an RPG-style progression loop inspired b
 - Pygame — SFX/BGM audio backend  
 - Pillow (optional) — used for certain visual effects if enabled
 
+## Getting Started
+
+### Install
+
+```bash
+git clone https://github.com/shuklashreyas/SoloLeveller.git
+cd SoloLeveller
+pip install -r requirements.txt
+python main.py
+```
+
 ## File Structure
 
 ```
 SoloLeveller/
-├── main.py                # Entry point; initializes DB and launches the Tkinter app
-├── database.py            # DB helpers, schema, and persistence logic
-├── ui/                    # UI components and main application window
+├── main.py                # Application entry point; sets up DB and launches the UI
+├── database.py            # Database schema, helpers, and persistence logic
+├── ui/                    # All UI components and main window logic
 │   ├── __init__.py
-│   └── ...                # (various UI modules)
-├── sound.py               # SFX playback (prefers pygame)
-├── bgm.py                 # Background music playlist and controls
-├── images/                # Image assets (character sprites, icons, etc.)
-├── data/                  # Static data (prompts, tokens, inventory)
-├── requirements.txt       # Python dependencies
-├── screenshots/           # App screenshots for README
-├── habit_tracker.db       # SQLite database (auto-created)
+│   └── ...                # (modular UI files)
+├── sound.py               # Handles sound effects (via pygame)
+├── bgm.py                 # Background music management and controls
+├── images/                # Visual assets (sprites, icons, etc.)
+├── data/                  # Static resources (prompts, tokens, inventory)
+├── requirements.txt       # Python dependency list
+├── screenshots/           # Example app screenshots
+├── habit_tracker.db       # Local SQLite database (auto-generated)
 └── README.md              # Project documentation
 ```
 
@@ -34,52 +45,18 @@ SoloLeveller/
 - Optional assets (music, images) are included in their respective folders.
 - See `requirements.txt` for dependencies.
   
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;">
-<div style="text-align: center;">
-  <img src="screenshots/atone.png" alt="Atone Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">Atone</p>
-</div>
-<div style="text-align: center;">
-  <img src="screenshots/basline.png" alt="Baseline Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">Baseline</p>
-</div>
-<div style="text-align: center;">
-  <img src="screenshots/contracts.png" alt="Contracts Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">Contracts</p>
-</div>
-<div style="text-align: center;">
-  <img src="screenshots/logger.png" alt="Logger Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">Logger</p>
-</div>
-<div style="text-align: center;">
-  <img src="screenshots/mycontracts.png" alt="My Contracts Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">My Contracts</p>
-</div>
-<div style="text-align: center;">
-  <img src="screenshots/randomchallenge.png" alt="Random Challenge Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">Random Challenge</p>
-</div>
-<div style="text-align: center;">
-  <img src="screenshots/shop.png" alt="Shop Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">Shop</p>
-</div>
-<div style="text-align: center;">
-  <img src="screenshots/startingscreen.png" alt="Starting Screen Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">Starting Screen</p>
-</div>
-<div style="text-align: center;">
-  <img src="screenshots/theme1.png" alt="Theme 1 Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">Theme 1</p>
-</div>
-<div style="text-align: center;">
-  <img src="screenshots/theme2.png" alt="Theme 2 Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">Theme 2</p>
-</div>
-<div style="text-align: center;">
-  <img src="screenshots/theme3.png" alt="Theme 3 Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-  <p style="margin-top: 10px; font-weight: bold;">Theme 3</p>
-</div>
-</div>
+## Preview
+
+### Screenshots
+
+Below are some example screenshots from the app, located in the `screenshots/` folder:
+
+![Baseline](screenshots/baseline.png)
+![Starting Screen](screenshots/startingscreen.png)
+![Theme 2](screenshots/theme2.png)
+![Logger](screenshots/logger.png)
+![Contracts](screenshots/contracts.png)
+![Atone](screenshots/atone.png)
 
 ## Current Feature Set (WIP)
 
@@ -151,19 +128,6 @@ The shop is designed to reward consistency and engagement, offering fun ways to 
 - SFX and background music with a mute toggle (state persists).
 - Baseline quiz on first run to establish starting stats.
 
-
-
-## Getting Started
-
-### Install
-
-```bash
-git clone https://github.com/shuklashreyas/SoloLeveller.git
-cd SoloLeveller
-pip install -r requirements.txt
-python main.py
-```
-
 ### Resetting Your Progress
 
 To start fresh and erase all tracked data, delete the local database file:
@@ -176,7 +140,7 @@ rm habit_tracker.db
 
 
 # License
-See [License.txt](./License.txt) for licensing details.
+See [License.txt](./License.txt) for license
 
 # Video Demo
 Coming Soon
