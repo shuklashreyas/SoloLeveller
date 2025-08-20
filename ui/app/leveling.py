@@ -79,7 +79,17 @@ def update_streak_on_action():
             if diff == 1:
                 count += 1                      # kept streak
             elif diff > 1:
-                count = max(0, count // 2)      # missed → halve, not reset
+                # If slip insurance is active, consume it and halve streak instead
+                try:
+                    from shop.effects import effects
+                    consumed = effects.consume_slip_insurance()
+                except Exception:
+                    consumed = False
+                if consumed:
+                    count = max(0, count // 2)
+                else:
+                    # default: halve streak (keeps behaviour consistent)
+                    count = max(0, count // 2)      # missed → halve, not reset
         else:
             count = 1
 

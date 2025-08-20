@@ -178,6 +178,12 @@ class JournalPanel(tk.Frame):
             # Gentle landing
             if state.get("gentle_landing_charges", 0) > 0:
                 boosts.append(f"Gentle Landing: {state['gentle_landing_charges']} left")
+            # One-time pardons
+            if state.get("one_time_pardons", 0) > 0:
+                boosts.append(f"One-Time Pardon: {state['one_time_pardons']} left")
+            # Slip insurance
+            if state.get("slip_insurance", 0) > 0:
+                boosts.append(f"Slip Insurance: {state['slip_insurance']} left")
             # Contract shield
             if state.get("contract_shields", 0) > 0:
                 boosts.append(f"Contract Shield: {state['contract_shields']} left")
@@ -210,6 +216,65 @@ class JournalPanel(tk.Frame):
             boost_bar.pack(fill="x", padx=16, pady=(10, 0))
             label = tk.Label(boost_bar, text="Active Effects:", font=FONTS["small"], bg=bar_bg, fg=pill_fg)
             label.pack(side="left", padx=(8, 0), pady=6)
+            # Use Pardon button (if any pardons available)
+            try:
+                active_state = effects.dump().get("active", {})
+                if active_state.get("one_time_pardons", 0) > 0:
+                    def _use_pardon():
+                        # open dialog to pick an eligible SIN entry
+                        win = tk.Toplevel(self)
+                        win.title("Use One-Time Pardon")
+                        win.geometry("640x360")
+                        win.grab_set()
+                        tk.Label(win, text="Select a Sin entry to erase (<= -2):", bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(anchor="w", padx=12, pady=8)
+                        list_frame = tk.Frame(win, bg=COLORS["BG"]) ; list_frame.pack(fill="both", expand=True, padx=12, pady=8)
+                        from database import get_connection
+                        import sqlite3
+                        conn = get_connection(); conn.row_factory = sqlite3.Row
+                        cur = conn.cursor()
+                        # recent sins (30 days)
+                        cur.execute("SELECT id, date, category, item, points FROM entries WHERE entry_type='SIN' AND points <= -2 AND date >= date('now','-30 days') ORDER BY date DESC, ts DESC")
+                        rows = [dict(r) for r in cur.fetchall()]
+                        conn.close()
+                        lst = tk.Listbox(list_frame)
+                        lst.pack(fill="both", expand=True, side="left")
+                        for r in rows:
+                            label_text = f"{r['date']} | {r['category']} | {r['item']} | {r['points']}"
+                            lst.insert("end", label_text)
+
+                        def _confirm():
+                            sel = lst.curselection()
+                            if not sel:
+                                messagebox.showinfo("Use Pardon", "Select an entry first.", parent=win); return
+                            idx = sel[0]
+                            entry = rows[idx]
+                            # prevent pardoning contract penalties heuristically
+                            if 'contract' in (entry.get('item') or '').lower():
+                                messagebox.showinfo("Use Pardon", "Cannot erase contract penalties.", parent=win)
+                                return
+                            from database import delete_entry
+                            from shop.effects import effects
+                            try:
+                                delete_entry(entry['id'])
+                                # consume a pardon
+                                a = effects._state.setdefault('active', {})
+                                a['one_time_pardons'] = max(0, int(a.get('one_time_pardons', 0)) - 1)
+                                effects._save()
+                                messagebox.showinfo("Use Pardon", "Entry erased.", parent=win)
+                                win.destroy()
+                                try: self.master.refresh_all()
+                                except Exception: pass
+                                try: self.on_save()
+                                except Exception: pass
+                            except Exception:
+                                messagebox.showinfo("Use Pardon", "Failed to erase entry.", parent=win)
+
+                        btn_row = tk.Frame(win, bg=COLORS['BG']); btn_row.pack(fill='x', padx=12, pady=8)
+                        RoundButton(btn_row, "Erase Selected", fill=COLORS['ACCENT'], hover_fill=COLORS.get('ACCENT_HOVER', COLORS['ACCENT']), fg=COLORS['WHITE'], command=_confirm).pack(side='right')
+                    btn = RoundButton(boost_bar, "Use Pardon", fill=COLORS['ACCENT'], hover_fill=COLORS.get('ACCENT_HOVER', COLORS['ACCENT']), fg=COLORS['WHITE'], padx=8, pady=6, radius=10, command=_use_pardon)
+                    btn.pack(side='left', padx=(6,0))
+            except Exception:
+                pass
             for b in boosts:
                 pill = tk.Label(
                     boost_bar, text=b, font=FONTS["small"],

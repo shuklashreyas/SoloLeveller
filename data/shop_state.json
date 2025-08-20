@@ -1,0 +1,24 @@
+{
+  "active_date": "2025-08-19",
+  "active": {
+    "xp_global": 0.0,
+    "xp_trait": {},
+    "contract_focus": 0.0,
+    "streak_plus": 0.0,
+    "dd_xp_bonus": 0.0,
+    "challenge_xp": 0.0,
+    "logger_full_bonus": 0.0,
+    "wrath_halved": false,
+    "gentle_landing_charges": 3,
+    "offer_beacons": 0,
+    "dd_rerolls": 0,
+    "challenge_rerolls": 0,
+    "challenge_time_cushion": 0,
+    "contract_shields": 0,
+    "sin_trait_reduce": {
+      "Mindful": 0.25
+    },
+    "one_time_pardons": 0,
+    "slip_insurance": 3
+  }
+}

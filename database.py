@@ -194,6 +194,13 @@ def get_entries_by_date(date: str):
     conn.close()
     return rows
 
+def delete_entry(entry_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM entries WHERE id=?", (int(entry_id),))
+    conn.commit()
+    conn.close()
+
 # -------- journal --------
 def get_journal(date: str):
     conn = get_connection()

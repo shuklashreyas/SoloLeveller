@@ -116,18 +116,35 @@ class ShopEffects:
             a["logger_full_bonus"] = max(float(a.get("logger_full_bonus", 0.0) or 0.0), 0.20)
             self._save()
             return "+20% XP when logging a full journal (today)"
-        # Gentle landing (sin penalty reduction)
+        # Gentle landing (sin penalty reduction) — grant 3 charges
         if name.startswith("gentle landing"):
             a = self._state.setdefault("active", {})
-            a["gentle_landing_charges"] = max(int(a.get("gentle_landing_charges", 0) or 0), 1)
+            a["gentle_landing_charges"] = max(int(a.get("gentle_landing_charges", 0) or 0), 3)
             self._save()
-            return "Gentle Landing active: one reduced sin penalty available (today)"
+            return "Gentle Landing active: next 3 sin penalties reduced by 1 XP each (today)"
         # Wrath halver
         if name.startswith("wrath halver"):
             a = self._state.setdefault("active", {})
             a["wrath_halved"] = True
             self._save()
             return "Wrath penalties halved (today)"
+        # Mindful Cushion (trait-specific sin reduction)
+        if name.startswith("mindful cushion"):
+            # maps to Mindful trait reductions
+            self._set_sin_trait_reduce("Mindful", 0.25)
+            return "Mindful Cushion active: -25% Mindful sin penalties (today)"
+        # One-Time Pardon
+        if name.startswith("one-time pardon") or name.startswith("one time pardon"):
+            a = self._state.setdefault("active", {})
+            a["one_time_pardons"] = int(a.get("one_time_pardons", 0) or 0) + 1
+            self._save()
+            return "One-Time Pardon granted: erase one small Sin (today)"
+        # Slip Insurance
+        if name.startswith("slip insurance"):
+            a = self._state.setdefault("active", {})
+            a["slip_insurance"] = int(a.get("slip_insurance", 0) or 0) + 1
+            self._save()
+            return "Slip Insurance active: halve your streak on a miss instead of resetting (one-time)"
         # Offer beacon
         if name.startswith("offer beacon"):
             a = self._state.setdefault("active", {})
@@ -208,6 +225,84 @@ class ShopEffects:
             pass
 
         return int(round(final))
+
+    # --- Neglects / Sin penalty helpers ---
+    def logger_penalty_buffer_pct(self) -> float:
+        a = self._state.get("active", {})
+        return float(a.get("logger_penalty_buffer", 0.0) or 0.0)
+
+    def reduce_sin_penalty(self, *, sin_name: str, mapped_trait: str, penalty_points: int) -> int:
+        """Apply active neglects to a sin penalty and return the (non-negative) reduced penalty points.
+
+        Rules:
+        - Reductions cap at 50% of the original penalty.
+        - Gentle Landing consumes one charge and reduces penalty by 1 XP (per charge) but never flips negative->positive.
+        - sin_trait_reduce entries (e.g., Mindful Cushion) reduce penalties for that trait by pct (up to 50%).
+        - Wrath halving halves penalties for "Wrath" (also subject to 50% cap).
+        - One-Time Pardon: if available and penalty_points <= 2, it erases the sin (returns 0) and consumes the pardon.
+        - Slip Insurance is not applied here; it is consumed elsewhere when a miss is detected (flag left in state).
+        """
+        if penalty_points <= 0:
+            return 0
+
+        a = self._state.setdefault("active", {})
+        original = int(penalty_points)
+
+        # One-Time Pardon (shard consumable) - only erase small sins (<=2)
+        if int(a.get("one_time_pardons", 0) or 0) > 0 and original <= 2:
+            a["one_time_pardons"] = int(a.get("one_time_pardons", 0)) - 1
+            self._save()
+            return 0
+
+        # Gentle Landing: consume one charge to reduce penalty by 1 (per charge)
+        if int(a.get("gentle_landing_charges", 0) or 0) > 0:
+            # consume one charge and reduce by 1 point
+            a["gentle_landing_charges"] = int(a.get("gentle_landing_charges", 0)) - 1
+            self._save()
+            reduced = max(0, original - 1)
+            # still apply other percentage reductions below to the reduced number
+            original = reduced
+
+        # Percent reductions (trait-specific cushions)
+        sin_map = a.get("sin_trait_reduce", {}) or {}
+        pct = float(sin_map.get(mapped_trait, 0.0) or 0.0)
+
+        # Wrath halving
+        if mapped_trait.lower() == "wrath" and bool(a.get("wrath_halved", False)):
+            pct = max(pct, 0.5)
+
+        # Ensure cap at 50%
+        pct = min(pct, 0.5)
+
+        reduced = int(round(original * (1.0 - pct)))
+
+        # Never flip to positive — penalties are non-negative ints
+        if reduced < 0:
+            reduced = 0
+
+        try:
+            self._save()
+        except Exception:
+            pass
+
+        return int(reduced)
+
+    # Utility: set a sin-trait reduction (used by token activation)
+    def _set_sin_trait_reduce(self, trait: str, pct: float) -> None:
+        a = self._state.setdefault("active", {})
+        smap = a.setdefault("sin_trait_reduce", {})
+        smap[trait] = max(float(smap.get(trait, 0.0) or 0.0), float(pct))
+        a["sin_trait_reduce"] = smap
+        self._save()
+
+    def consume_slip_insurance(self) -> bool:
+        """Consume one Slip Insurance if available; returns True if consumed."""
+        a = self._state.setdefault("active", {})
+        if int(a.get("slip_insurance", 0) or 0) > 0:
+            a["slip_insurance"] = int(a.get("slip_insurance", 0)) - 1
+            self._save()
+            return True
+        return False
 
 
 # singleton instance
