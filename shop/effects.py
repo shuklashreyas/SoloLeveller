@@ -48,6 +48,10 @@ class ShopEffects:
                 "challenge_xp": 0.0,
                 # extra features
                 "logger_full_bonus": 0.0,
+                "logger_full_bonus_next": 0.0,
+                "task_doubler": 0,
+                "logger_penalty_buffer": 0.0,
+                "logger_penalty_buffer_one_time": False,
                 "wrath_halved": False,
                 "gentle_landing_charges": 0,
                 "offer_beacons": 0,
@@ -200,6 +204,31 @@ class ShopEffects:
             self._save()
             return "+50% XP on Random Challenge success (today)"
 
+        # --- Logger category tokens ---
+        # Task Doubler: one logged task counts as two for the logger bonus calc (one-time)
+        if name.startswith("task doubler"):
+            a = self._state.setdefault("active", {})
+            a["task_doubler"] = int(a.get("task_doubler", 0) or 0) + 1
+            self._save()
+            return "Task Doubler granted: one logged task will count as two (one-time)"
+
+        # Planner's Edge: schedule a logger full bonus for tomorrow
+        if name.startswith("planner") or name.startswith("planner's edge"):
+            a = self._state.setdefault("active", {})
+            # store as a 'next' flag which will be applied when the logger opens next day
+            a["logger_full_bonus_next"] = max(float(a.get("logger_full_bonus_next", 0.0) or 0.0), 0.50)
+            self._save()
+            return "Planner's Edge scheduled: +50% logger full bonus for tomorrow"
+
+        # Penalty Buffer: one-time reduction to logger penalty
+        if name.startswith("penalty buffer"):
+            a = self._state.setdefault("active", {})
+            a["logger_penalty_buffer"] = max(float(a.get("logger_penalty_buffer", 0.0) or 0.0), 0.30)
+            # mark as one-time use — we will zero it when applied
+            a["logger_penalty_buffer_one_time"] = True
+            self._save()
+            return "Penalty Buffer active: -30% logger penalty on next incomplete set"
+
         return "Unknown boost"
 
     def xp_after_boosts(self, base_xp: float, *, trait: str, has_contract_for_trait: bool = False, is_random_challenge: bool = False, is_daily_double: bool = False) -> int:
@@ -235,6 +264,33 @@ class ShopEffects:
     def logger_penalty_buffer_pct(self) -> float:
         a = self._state.get("active", {})
         return float(a.get("logger_penalty_buffer", 0.0) or 0.0)
+
+    def logger_full_bonus_pct(self) -> float:
+        a = self._state.get("active", {})
+        return float(a.get("logger_full_bonus", 0.0) or 0.0)
+
+    def consume_logger_penalty_buffer(self) -> None:
+        """Consume the one-time logger penalty buffer (set it to 0)."""
+        a = self._state.setdefault("active", {})
+        if float(a.get("logger_penalty_buffer", 0.0) or 0.0) > 0:
+            a["logger_penalty_buffer"] = 0.0
+            a["logger_penalty_buffer_one_time"] = False
+            try:
+                self._save()
+            except Exception:
+                pass
+
+    def shift_logger_next_to_active(self) -> None:
+        """If planner-edge was scheduled for next day, apply it to active bonuses and clear the next flag."""
+        a = self._state.setdefault("active", {})
+        next_pct = float(a.get("logger_full_bonus_next", 0.0) or 0.0)
+        if next_pct > 0:
+            a["logger_full_bonus"] = max(float(a.get("logger_full_bonus", 0.0) or 0.0), next_pct)
+            a["logger_full_bonus_next"] = 0.0
+            try:
+                self._save()
+            except Exception:
+                pass
 
     def reduce_sin_penalty(self, *, sin_name: str, mapped_trait: str, penalty_points: int) -> int:
         """Apply active neglects to a sin penalty and return the (non-negative) reduced penalty points.

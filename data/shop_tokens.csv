@@ -30,3 +30,9 @@ Contracts & Offers,Contract Shield,Next broken contract penalty reduced by 50%,t
 
 
 
+Logger,Task Doubler,One Logger task counts as two for bonus calc,today,40,Coins,Mark task at purchase
+Logger,Planner's Edge,Logger full-complete bonus +50% for tomorrow,tomorrow,60,Coins,Applies to next day
+Logger,Penalty Buffer,If <100% Logger completion, penalty reduced by 30%,today,45,Coins,One-time use
+
+
+

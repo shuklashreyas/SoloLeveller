@@ -26,9 +26,26 @@ def _human_summary(total: int, done: int, xp: int) -> str:
     return f"{done}/{total} done, {misses} missed → {xp:+d} XP"
 
 from shop.effects import effects
+
 def _compute_xp(total: int, done: int) -> int:
     if total <= 0:
         return 0
+    # Task Doubler: if available and at least one task done, count one completed task twice (one-time)
+    try:
+        td = int(effects.dump().get('active', {}).get('task_doubler', 0) or 0)
+    except Exception:
+        td = 0
+    if td > 0 and done > 0:
+        # apply one-time doubling: effectively +1 done (capped at total)
+        done = min(total, done + 1)
+        # consume one
+        try:
+            st = effects._state.setdefault('active', {})
+            st['task_doubler'] = max(0, int(st.get('task_doubler', 0)) - 1)
+            effects._save()
+        except Exception:
+            pass
+
     if done == total:
         # Apply logger full bonus if available
         base = total * REWARD_PER_TASK
@@ -41,6 +58,14 @@ def _compute_xp(total: int, done: int) -> int:
     buffer_pct = effects.logger_penalty_buffer_pct()
     if buffer_pct > 0:
         base_penalty = int(round(base_penalty * (1 - buffer_pct)))
+        # consume one-time buffer if flagged
+        try:
+            # only consume if explicitly one-time
+            a = effects.dump().get('active', {})
+            if a.get('logger_penalty_buffer_one_time'):
+                effects.consume_logger_penalty_buffer()
+        except Exception:
+            pass
     return base_penalty
 
 def open_logger(self):
@@ -60,6 +85,11 @@ def open_logger(self):
     # ----- Header -----
     hdr = tk.Frame(win, bg=COLORS["BG"]); hdr.pack(fill="x", padx=12, pady=(12,6))
     tk.Label(hdr, text="Non-negotiables", font=FONTS["h2"], bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(side="left")
+    # Ensure any planner-edge scheduled for 'tomorrow' is applied when opening the logger
+    try:
+        effects.shift_logger_next_to_active()
+    except Exception:
+        pass
 
     # Tabs
     nb = tk.Frame(win, bg=COLORS["BG"]); nb.pack(fill="both", expand=True, padx=12, pady=8)
