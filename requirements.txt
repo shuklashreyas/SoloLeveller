@@ -1,0 +1,5 @@
+# Optional / recommended packages for best audio & image support
+# tkinter and sqlite3 are part of the Python standard library.
+pygame>=2.1.0
+playsound>=1.2.2
+Pillow>=9.0.0
