@@ -95,17 +95,20 @@ class ShopEffects:
         # Omni/global
         if name.startswith("omni booster"):
             self._set_global_boost(0.10)
+            print(f"[effects] activated token: {token.get('item') if isinstance(token, dict) else name}")
             return "+10% XP to all Atones (today)"
 
         # Trait-specific boosters (e.g. 'Spiritual Booster', 'Mindful Booster')
         for trait in POSITIVE_TRAITS:
             if name.startswith(f"{trait.lower()} booster"):
                 self._set_trait_boost(trait, 0.25)
+                print(f"[effects] activated token: {token.get('item') if isinstance(token, dict) else name}")
                 return f"+25% XP to {trait} Atones (today)"
 
         # legacy Physical Booster name
         if name.startswith("physical booster"):
             self._set_trait_boost("Physical", 0.25)
+            print(f"[effects] activated token: {token.get('item') if isinstance(token, dict) else name}")
             return "+25% XP to Physical Atones (today)"
         # Contract focus booster
         if name.startswith("contract focus booster"):

@@ -28,8 +28,6 @@ Contracts & Offers,Offer Beacon,+1 Offer Beacon (adds an offer),today,60,Coins,C
 Contracts & Offers,Grace Period,Extend one active contract by +1 day,today,2,Shards,1x per contract
 Contracts & Offers,Contract Shield,Next broken contract penalty reduced by 50%,today,2,Shards,One-time
 
-
-
 Logger,Task Doubler,One Logger task counts as two for bonus calc,today,40,Coins,Mark task at purchase
 Logger,Planner's Edge,Logger full-complete bonus +50% for tomorrow,tomorrow,60,Coins,Applies to next day
 Logger,Penalty Buffer,If <100% Logger completion, penalty reduced by 30%,today,45,Coins,One-time use

@@ -87,6 +87,11 @@ class HabitTrackerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Habit Tracker — Solo Level-Up")
+        # expose app instance on the root window so child widgets can find it
+        try:
+            setattr(self.root, '_app', self)
+        except Exception:
+            pass
 
         # Init audio backends
         init_sound()
@@ -187,6 +192,15 @@ class HabitTrackerApp:
 
         try:
             self.actions.set_sound_state(self.sound_enabled)
+        except Exception:
+            pass
+        # Refresh journal active-effects bar if available
+        try:
+            if hasattr(self, 'journal') and hasattr(self.journal, '_populate_boost_bar'):
+                try:
+                    self.journal._populate_boost_bar()
+                except Exception:
+                    pass
         except Exception:
             pass
 

@@ -141,8 +141,13 @@ class JournalPanel(tk.Frame):
         self.save_btn.pack(side="right")
 
 
-        # ---------- Active Boosts/Effects Bar ----------
+        # ---------- Active Boosts/Effects Bar (refreshable) ----------
+        # create an always-present container for active effects so we can refresh it later
+        self._boost_bar = tk.Frame(self, bg=COLORS.get("BG", "#f8f8fa"), bd=0, highlightthickness=0)
+        self._boost_bar.pack(fill="x", padx=16, pady=(10, 0))
+
         from shop.effects import effects
+
         def _get_active_boosts():
             state = effects.dump().get("active", {})
             boosts = []
@@ -209,28 +214,32 @@ class JournalPanel(tk.Frame):
                 boosts.append(f"-{int(state['logger_penalty_buffer']*100)}% Logger penalty")
             return boosts
 
-        boosts = _get_active_boosts()
-        if boosts:
-            # Modern pill/badge style bar
-            bar_bg = COLORS.get("BG", "#f8f8fa")
+        # populate initial boosts into the persistent container
+        def _populate():
+            for child in list(self._boost_bar.winfo_children()):
+                try: child.destroy()
+                except: pass
+            boosts = _get_active_boosts()
+            print(f"[journal] _populate called, boosts={boosts}")
+            if not boosts:
+                return
             pill_bg = COLORS.get("ACCENT", "#f5e663")
             pill_fg = COLORS.get("TEXT", "#222")
-            boost_bar = tk.Frame(self, bg=bar_bg, bd=0, highlightthickness=0)
-            boost_bar.pack(fill="x", padx=16, pady=(10, 0))
-            label = tk.Label(boost_bar, text="Active Effects:", font=FONTS["small"], bg=bar_bg, fg=pill_fg)
+            bar_bg = COLORS.get("BG", "#f8f8fa")
+            self._boost_bar.configure(bg=bar_bg)
+            label = tk.Label(self._boost_bar, text="Active Effects:", font=FONTS["small"], bg=bar_bg, fg=pill_fg)
             label.pack(side="left", padx=(8, 0), pady=6)
-            # Use Pardon button (if any pardons available)
             try:
                 active_state = effects.dump().get("active", {})
                 if active_state.get("one_time_pardons", 0) > 0:
                     def _use_pardon():
                         # open dialog to pick an eligible SIN entry
-                        win = tk.Toplevel(self)
-                        win.title("Use One-Time Pardon")
-                        win.geometry("640x360")
-                        win.grab_set()
-                        tk.Label(win, text="Select a Sin entry to erase (<= -2):", bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(anchor="w", padx=12, pady=8)
-                        list_frame = tk.Frame(win, bg=COLORS["BG"]) ; list_frame.pack(fill="both", expand=True, padx=12, pady=8)
+                        winp = tk.Toplevel(self)
+                        winp.title("Use One-Time Pardon")
+                        winp.geometry("640x360")
+                        winp.grab_set()
+                        tk.Label(winp, text="Select a Sin entry to erase (<= -2):", bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(anchor="w", padx=12, pady=8)
+                        list_frame = tk.Frame(winp, bg=COLORS["BG"]) ; list_frame.pack(fill="both", expand=True, padx=12, pady=8)
                         from database import get_connection
                         import sqlite3
                         conn = get_connection(); conn.row_factory = sqlite3.Row
@@ -248,12 +257,12 @@ class JournalPanel(tk.Frame):
                         def _confirm():
                             sel = lst.curselection()
                             if not sel:
-                                messagebox.showinfo("Use Pardon", "Select an entry first.", parent=win); return
+                                messagebox.showinfo("Use Pardon", "Select an entry first.", parent=winp); return
                             idx = sel[0]
                             entry = rows[idx]
                             # prevent pardoning contract penalties heuristically
                             if 'contract' in (entry.get('item') or '').lower():
-                                messagebox.showinfo("Use Pardon", "Cannot erase contract penalties.", parent=win)
+                                messagebox.showinfo("Use Pardon", "Cannot erase contract penalties.", parent=winp)
                                 return
                             from database import delete_entry
                             from shop.effects import effects
@@ -263,31 +272,39 @@ class JournalPanel(tk.Frame):
                                 a = effects._state.setdefault('active', {})
                                 a['one_time_pardons'] = max(0, int(a.get('one_time_pardons', 0)) - 1)
                                 effects._save()
-                                messagebox.showinfo("Use Pardon", "Entry erased.", parent=win)
-                                win.destroy()
+                                messagebox.showinfo("Use Pardon", "Entry erased.", parent=winp)
+                                winp.destroy()
                                 try: self.master.refresh_all()
                                 except Exception: pass
                                 try: self.on_save()
                                 except Exception: pass
                             except Exception:
-                                messagebox.showinfo("Use Pardon", "Failed to erase entry.", parent=win)
+                                messagebox.showinfo("Use Pardon", "Failed to erase entry.", parent=winp)
 
-                        btn_row = tk.Frame(win, bg=COLORS['BG']); btn_row.pack(fill='x', padx=12, pady=8)
+                        btn_row = tk.Frame(winp, bg=COLORS['BG']); btn_row.pack(fill='x', padx=12, pady=8)
                         RoundButton(btn_row, "Erase Selected", fill=COLORS['ACCENT'], hover_fill=COLORS.get('ACCENT_HOVER', COLORS['ACCENT']), fg=COLORS['WHITE'], command=_confirm).pack(side='right')
-                    btn = RoundButton(boost_bar, "Use Pardon", fill=COLORS['ACCENT'], hover_fill=COLORS.get('ACCENT_HOVER', COLORS['ACCENT']), fg=COLORS['WHITE'], padx=8, pady=6, radius=10, command=_use_pardon)
+                    btn = RoundButton(self._boost_bar, "Use Pardon", fill=COLORS['ACCENT'], hover_fill=COLORS.get('ACCENT_HOVER', COLORS['ACCENT']), fg=COLORS['WHITE'], padx=8, pady=6, radius=10, command=_use_pardon)
                     btn.pack(side='left', padx=(6,0))
             except Exception:
                 pass
             for b in boosts:
                 pill = tk.Label(
-                    boost_bar, text=b, font=FONTS["small"],
+                    self._boost_bar, text=b, font=FONTS["small"],
                     bg=pill_bg, fg=pill_fg,
                     padx=12, pady=4,
                     borderwidth=0, relief="flat"
                 )
-                # Rounded corners (simulate with padding and border)
                 pill.pack(side="left", padx=6, pady=4)
                 pill.configure(highlightbackground=pill_bg, highlightcolor=pill_bg, highlightthickness=1)
+
+        # attach the population method so other code can refresh the effects bar
+        self._populate_boost_bar = _populate
+        # populate initially
+        try:
+            self._populate_boost_bar()
+        except Exception:
+            pass
+
 
         # ---------- Shop area ----------
         shop_frame = tk.Frame(self, bg=COLORS["CARD"], bd=0)
@@ -381,22 +398,123 @@ class JournalPanel(tk.Frame):
 
                 def apply_token_effect(token: dict):
                     msg = effects.activate_from_token(token)
-                    messagebox.showinfo("Item used", msg, parent=self)
+                    # show modal parented to the inventory window so focus returns correctly
+                    try:
+                        messagebox.showinfo("Item used", msg, parent=win)
+                    except Exception:
+                        try:
+                            messagebox.showinfo("Item used", msg, parent=self)
+                        except Exception:
+                            try:
+                                messagebox.showinfo("Item used", msg)
+                            except Exception:
+                                pass
+
+                    # Always log and refresh UI after activation so the boost bar updates immediately
+                    try:
+                        print(f"[inventory] applied token {token.get('item') if isinstance(token, dict) else token}, msg={msg}")
+                    except Exception:
+                        pass
+                    try:
+                        # refresh main UI so active boosts/effects update immediately
+                        app = getattr(self.winfo_toplevel(), '_app', None)
+                        if app and hasattr(app, 'refresh_all'):
+                            try: app.refresh_all()
+                            except Exception: pass
+                        else:
+                            # fallback to previous heuristics
+                            if hasattr(self, 'master') and hasattr(self.master, 'refresh_all'):
+                                try: self.master.refresh_all()
+                                except Exception: pass
+                    except Exception:
+                        pass
+                    # Also directly repopulate the journal boost bar to ensure immediate visibility
+                    try:
+                        try: self._populate_boost_bar()
+                        except Exception: pass
+                    except Exception:
+                        pass
 
                 def use_token(idx):
+                    # Use the token, consume from inventory, and update the UI in-place.
                     entry = items[idx]
                     name = entry.get("item")
                     tok  = next((t for t in tokens if t.get("item") == name), None)
                     if tok:
                         apply_token_effect(tok)
                     # remove token from inventory after use
-                    del items[idx]
+                    try:
+                        del items[idx]
+                    except Exception:
+                        pass
                     try:
                         inv_path.write_text(json.dumps(items), encoding="utf-8")
                     except Exception as e:
                         print(f"[inventory] failed to update: {e}")
-                    win.destroy()
-                    _show_inventory_popup()
+
+                    # Rebuild the scroll_frame contents to reflect the removed item
+                    for child in list(scroll_frame.winfo_children()):
+                        try: child.destroy()
+                        except: pass
+
+                    if not items:
+                        tk.Label(scroll_frame, text="No tokens owned.", bg=COLORS["CARD"], fg=COLORS["MUTED"]).pack()
+                    else:
+                        for idx2, entry2 in enumerate(items):
+                            name2 = entry2.get("item")
+                            tok2 = next((t for t in tokens if t.get("item") == name2), None)
+                            if not tok2:
+                                continue
+                            cat_norm2 = (tok2.get("category") or "").strip().lower()
+                            img2 = self._icon_by_category.get(cat_norm2)
+                            if not img2:
+                                idx_img = abs(hash(cat_norm2)) % max(1, len(self._icon_list))
+                                img2 = self._icon_list[idx_img]
+                            row2 = tk.Frame(scroll_frame, bg=COLORS["CARD"])
+                            row2.pack(fill="x", pady=2)
+                            if img2:
+                                icon_lbl2 = tk.Label(row2, image=img2, bg=COLORS["CARD"])
+                                icon_lbl2.image = img2
+                                icon_lbl2.pack(side="left", padx=(0, 8))
+                            desc2 = tok2.get("effect") or "No description."
+                            tk.Label(row2, text=name2, font=(None, 11, "bold"), bg=COLORS["CARD"], fg=COLORS["TEXT"]).pack(side="left")
+                            tk.Label(row2, text=desc2, font=(None, 10), bg=COLORS["CARD"], fg=COLORS["MUTED"], wraplength=260, justify="left").pack(side="left", padx=(8, 0))
+                            RoundButton(row2, "Use Now", fill=COLORS["PRIMARY"], fg=COLORS["WHITE"], command=lambda i=idx2: use_token(i), padx=8, pady=4, radius=8).pack(side="left", padx=(12, 0))
+
+                    # Ensure main UI reflects any activated effects/currency changes
+                    try:
+                        app = getattr(self.winfo_toplevel(), '_app', None)
+                        if app and hasattr(app, 'refresh_all'):
+                            try: app.refresh_all()
+                            except Exception: pass
+                        else:
+                            try:
+                                if hasattr(self.master, 'refresh_all'):
+                                    try: self.master.refresh_all()
+                                    except Exception: pass
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+
+                    # Refresh scrollregion and reset view so the updated list is visible
+                    try:
+                        canvas.update_idletasks()
+                        bbox = canvas.bbox("all")
+                        if bbox:
+                            canvas.configure(scrollregion=bbox)
+                        try:
+                            canvas.yview_moveto(0.0)
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+
+                    try:
+                        win.update_idletasks()
+                        win.focus_force()
+                    except Exception:
+                        pass
 
                 for idx, entry in enumerate(items):
                     name = entry.get("item")
@@ -513,6 +631,14 @@ class JournalPanel(tk.Frame):
                     pass
 
                 messagebox.showinfo("Shop", f"Bought {tok.get('item')}", parent=self)
+
+                # Refresh main UI so shop/inventory/effects state is visible immediately
+                try:
+                    if hasattr(self.master, 'refresh_all'):
+                        try: self.master.refresh_all()
+                        except Exception: pass
+                except Exception:
+                    pass
 
                 # Find the slot for this token
                 slot = next((s for s in self._shop_slots if s.get("tok") == tok), None)
@@ -770,6 +896,13 @@ class JournalPanel(tk.Frame):
             if new_tok:
                 _assign_token_to_slot(slot, new_tok)
                 _save_slots_state()
+                # After replacing a slot, ensure the parent UI refreshes (currency/effects may have changed)
+                try:
+                    if hasattr(self.master, 'refresh_all'):
+                        try: self.master.refresh_all()
+                        except Exception: pass
+                except Exception:
+                    pass
 
         # create up to 3 visible slots, try to restore previous state
         visible = min(3, max(1, len(tokens))) or 3
