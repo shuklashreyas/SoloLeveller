@@ -51,6 +51,7 @@ class ShopEffects:
                 "wrath_halved": False,
                 "gentle_landing_charges": 0,
                 "offer_beacons": 0,
+                "grace_periods": 0,
                 "dd_rerolls": 0,
                 "challenge_rerolls": 0,
                 "challenge_time_cushion": 0,
@@ -86,8 +87,6 @@ class ShopEffects:
     def activate_from_token(self, token: dict) -> str:
         name = (token.get("item") or "").strip().lower() if isinstance(token, dict) else str(token)
         cat = (token.get("category") or "").strip().lower() if isinstance(token, dict) else ""
-        if cat != "boosts":
-            return "Not a boost token"
 
         # Omni/global
         if name.startswith("omni booster"):
@@ -150,7 +149,13 @@ class ShopEffects:
             a = self._state.setdefault("active", {})
             a["offer_beacons"] = int(a.get("offer_beacons", 0) or 0) + 1
             self._save()
-            return "+1 Offer Beacon (adds an offer)",
+            return "+1 Offer Beacon (adds an offer)"
+        # Grace Period (extend one active contract by +1 day)
+        if name.startswith("grace period"):
+            a = self._state.setdefault("active", {})
+            a["grace_periods"] = int(a.get("grace_periods", 0) or 0) + 1
+            self._save()
+            return "+1 Grace Period (extend one contract by 1 day)"
         # Daily Double reroll
         if name.startswith("daily double reroll"):
             a = self._state.setdefault("active", {})
@@ -300,6 +305,14 @@ class ShopEffects:
         a = self._state.setdefault("active", {})
         if int(a.get("slip_insurance", 0) or 0) > 0:
             a["slip_insurance"] = int(a.get("slip_insurance", 0)) - 1
+            self._save()
+            return True
+        return False
+
+    def consume_contract_shield(self) -> bool:
+        a = self._state.setdefault("active", {})
+        if int(a.get("contract_shields", 0) or 0) > 0:
+            a["contract_shields"] = int(a.get("contract_shields", 0)) - 1
             self._save()
             return True
         return False

@@ -12,7 +12,6 @@ Boosts,Daily Double Amplifier,+50% extra XP on Daily Double Atones,today,2,Shard
 Boosts,Challenge Booster,+50% XP on Random Challenge success,today,2,Shards,Challenge-specific
 Boosts,Contract Focus Booster,+25% XP when doing contracted trait,today,45,Coins,Contract-specific
 Boosts,Logger Full Booster,+20% XP when logging full journal,today,30,Coins,Logger bonus
-Boosts,Offer Beacon,+1 Offer Beacon (adds an offer),today,25,Coins,Offer increase
 Boosts,Daily Double Reroll,Allow one extra Daily Double reroll,today,1,Shards,Utility
 Boosts,Challenge Reroll,Allow one extra Challenge reroll,today,1,Shards,Utility
 Boosts,Challenge Time Cushion,+5 minutes challenge timer today,today,40,Coins,Challenge time
@@ -24,6 +23,10 @@ Neglects,Wrath Halver,Halve Wrath penalties today,today,1,Shards,Penalty reducti
 Neglects,Mindful Cushion,Sins mapped to Mindful lose 25% penalty today,today,45,Coins,Trait variants
 Neglects,One-Time Pardon,Erase one Sin entry (<= -2) once,today,1,Shards,Cannot erase Contract penalties
 Neglects,Slip Insurance,If you miss a day, streak halves (not resets),today,2,Shards,Consumed when triggered
+
+Contracts & Offers,Offer Beacon,+1 Offer Beacon (adds an offer),today,60,Coins,Cooldown 24h
+Contracts & Offers,Grace Period,Extend one active contract by +1 day,today,2,Shards,1x per contract
+Contracts & Offers,Contract Shield,Next broken contract penalty reduced by 50%,today,2,Shards,One-time
 
 
 

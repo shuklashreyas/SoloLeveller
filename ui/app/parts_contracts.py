@@ -63,8 +63,31 @@ def open_contracts(self):
 
     # ----- Available Today -----
     tab_av = tk.Frame(nb, bg=COLORS["BG"]); nb.add(tab_av, text="Available Today")
-    tk.Label(tab_av, text="Time-limited offers (claim before they expire)",
-             font=FONTS["h2"], bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(anchor="w", padx=8, pady=(8, 2))
+    hdr_frame = tk.Frame(tab_av, bg=COLORS["BG"])
+    hdr_frame.pack(fill="x", padx=8, pady=(8, 2))
+    tk.Label(hdr_frame, text="Time-limited offers (claim before they expire)",
+             font=FONTS["h2"], bg=COLORS["BG"], fg=COLORS["TEXT"]).pack(side="left")
+
+    def use_offer_beacon():
+        try:
+            from shop.effects import effects
+            a = effects.dump().get('active', {})
+            if int(a.get('offer_beacons', 0)) <= 0:
+                messagebox.showinfo("Offer Beacon", "No Offer Beacons available.", parent=win)
+                return
+            # consume one beacon
+            st = effects._state.setdefault('active', {})
+            st['offer_beacons'] = max(0, int(st.get('offer_beacons', 0)) - 1)
+            effects._save()
+            # generate today's offers (one-shot)
+            from database import generate_daily_contracts_if_needed
+            generate_daily_contracts_if_needed()
+            messagebox.showinfo("Offer Beacon", "Generated new offers. Check Available tab.", parent=win)
+            refresh_views(); self.refresh_all()
+        except Exception as e:
+            messagebox.showwarning("Offer Beacon", f"Failed to use Offer Beacon: {e}", parent=win)
+
+    RoundButton(hdr_frame, "Use Offer Beacon", fill=COLORS["PRIMARY"], fg=COLORS["WHITE"], padx=10, pady=6, radius=10, command=use_offer_beacon).pack(side="right")
     list_av = tk.Frame(tab_av, bg=COLORS["BG"]); list_av.pack(fill="both", expand=True, padx=8, pady=6)
 
     def clear_children(parent):
@@ -138,6 +161,42 @@ def open_contracts(self):
                 RoundButton(box, "Mark Broken",
                             fill=COLORS["ACCENT"], hover_fill=COLORS.get("ACCENT_HOVER", COLORS["ACCENT"]),
                             fg=COLORS["WHITE"], padx=14, pady=8, radius=12, command=break_it).pack(pady=10)
+
+                # Use a Grace Period to extend this contract by one day
+                def use_grace():
+                    try:
+                        from shop.effects import effects
+                        if int(effects.dump().get('active', {}).get('grace_periods', 0)) <= 0:
+                            messagebox.showinfo("Grace Period", "No Grace Periods available.", parent=win)
+                            return
+                        # extend end_date by +1 day
+                        from database import get_connection
+                        conn = get_connection(); cur = conn.cursor()
+                        cur.execute("SELECT end_date FROM contracts WHERE id=?", (cid,))
+                        row = cur.fetchone()
+                        if not row:
+                            messagebox.showinfo("Grace Period", "Contract not found.", parent=win)
+                            conn.close(); return
+                        ed = row[0]
+                        from datetime import datetime, timedelta
+                        try:
+                            ed_dt = datetime.fromisoformat(ed)
+                        except Exception:
+                            # fallback to date only
+                            ed_dt = datetime.fromisoformat(ed + 'T00:00:00')
+                        new_ed = (ed_dt + timedelta(days=1)).date().isoformat()
+                        cur.execute("UPDATE contracts SET end_date=? WHERE id=?", (new_ed, cid))
+                        conn.commit(); conn.close()
+                        # consume one grace period (decrement stored count)
+                        st = effects._state.setdefault('active', {})
+                        st['grace_periods'] = max(0, int(st.get('grace_periods', 0)) - 1)
+                        effects._save()
+                        messagebox.showinfo("Grace Period", "Contract extended by 1 day.", parent=win)
+                    except Exception as e:
+                        messagebox.showwarning("Grace Period", f"Failed to apply Grace Period: {e}", parent=win)
+                    refresh_views(); self.refresh_all()
+
+                RoundButton(box, "Use Grace", fill=COLORS["PRIMARY"], fg=COLORS["WHITE"], padx=8, pady=6, radius=8, command=use_grace).pack(pady=4)
 
             card(list_my, title, subtitle, right_btn=make_btns)
 

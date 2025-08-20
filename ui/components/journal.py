@@ -187,6 +187,9 @@ class JournalPanel(tk.Frame):
             # Contract shield
             if state.get("contract_shields", 0) > 0:
                 boosts.append(f"Contract Shield: {state['contract_shields']} left")
+            # Grace periods
+            if state.get("grace_periods", 0) > 0:
+                boosts.append(f"Grace Periods: {state['grace_periods']} left")
             # Offer beacon
             if state.get("offer_beacons", 0) > 0:
                 boosts.append(f"Offer Beacon: {state['offer_beacons']} left")
