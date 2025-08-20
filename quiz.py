@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from constants import POSITIVE_TRAITS, COLORS, FONTS, ATTR_DESCRIPTIONS
+# sound effects not used by this module
 from database import upsert_attribute, set_meta
 from exp_system import set_total_xp
 from widgets import RoundButton
@@ -53,14 +54,15 @@ class BaselineQuiz(tk.Toplevel):
             tk.Label(left, text=ATTR_DESCRIPTIONS[trait],
                      font=FONTS["small"], fg=COLORS["MUTED"], bg=COLORS["BG"]).pack(anchor="w", pady=(0, 4))
 
-            btn = RoundButton(
-        self, "Save baseline",
-        command=self._save,
-        fill=COLORS["PRIMARY"],          # was bg=
-        hover_fill="#7A71FF",            # optional hover color
-        fg=COLORS["WHITE"],
-        padx=18, pady=10, radius=12      # radius if your RoundButton supports it
-)
+        # Save button (after all trait sliders)
+        btn = RoundButton(
+            self, "Save baseline",
+            command=self._save,
+            fill=COLORS["PRIMARY"],
+            hover_fill="#7A71FF",
+            fg=COLORS["WHITE"],
+            padx=18, pady=10, radius=12
+        )
 
         btn.pack(pady=12)
 

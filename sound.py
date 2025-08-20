@@ -84,3 +84,6 @@ def play_sfx(name: str):
     except Exception:
         # Never explode the UI because audio failed
         pass
+
+
+# note: no stop_sfx helper — playbacks are fire-and-forget across backends
