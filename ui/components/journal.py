@@ -132,6 +132,10 @@ class JournalPanel(tk.Frame):
         self.status_label = tk.Label(bar, text="", bg=COLORS["CARD"], fg=COLORS["TEXT"], font=FONTS["small"])
         self.status_label.pack(side="left")
 
+        # Small journal streak counter (shows progress toward 5 qualifying days)
+        self._streak_label = tk.Label(bar, text="", bg=COLORS["CARD"], fg=COLORS["TEXT"], font=FONTS["small"])
+        self._streak_label.pack(side="left", padx=(8, 0))
+
         self.save_btn = RoundButton(
             bar, "Save Journal",
             fill=COLORS["PRIMARY"], hover_fill=COLORS.get("PRIMARY_HOVER", COLORS["PRIMARY"]),
@@ -307,6 +311,30 @@ class JournalPanel(tk.Frame):
         # populate initially
         try:
             self._populate_boost_bar()
+        except Exception:
+            pass
+
+        # Journal streak label updater
+        def _update_streak_label():
+            try:
+                # avoid top-level import to reduce circular import risk
+                from database import get_meta
+                cnt = int(get_meta('journal_streak_count') or "0")
+                if cnt <= 0:
+                    self._streak_label.config(text="Journal Streak: 0/5")
+                else:
+                    mod = cnt % 5
+                    display = 5 if mod == 0 else mod
+                    self._streak_label.config(text=f"Journal Streak: {display}/5")
+            except Exception:
+                try:
+                    self._streak_label.config(text="Journal Streak: -/5")
+                except Exception:
+                    pass
+
+        self._update_streak_label = _update_streak_label
+        try:
+            self._update_streak_label()
         except Exception:
             pass
 

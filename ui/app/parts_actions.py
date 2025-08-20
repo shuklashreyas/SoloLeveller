@@ -31,6 +31,45 @@ def save_journal(self, text: str):
     except Exception:
         pass
 
+    # --- Journal streak: qualify if >=100 chars and award every 5 qualifying days ---
+    try:
+        qual = len((text or "").strip()) >= 100
+        if qual:
+            # persistent counter in meta: 'journal_streak_count' increments on each qualifying day
+            try:
+                cur = int(get_meta('journal_streak_count') or "0")
+            except Exception:
+                cur = 0
+            cur += 1
+            try:
+                set_meta('journal_streak_count', str(cur))
+            except Exception:
+                pass
+
+            # award 20 coins every 5 qualifying days
+            if cur % 5 == 0:
+                try:
+                    add_coins(20)
+                    try: play_sfx('bought')
+                    except Exception: pass
+                    # show small popup to notify user
+                    try:
+                        messagebox.showinfo('Journal Reward', 'Milestone reached: 20 coins awarded!')
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+
+            # refresh the journal streak label if available
+            try:
+                if hasattr(self, 'journal') and hasattr(self.journal, '_update_streak_label'):
+                    try: self.journal._update_streak_label()
+                    except Exception: pass
+            except Exception:
+                pass
+    except Exception:
+        pass
+
 # --- Actions ---
 def open_atone_dialog(self):
     _handle_action(self, kind="ATONE")
