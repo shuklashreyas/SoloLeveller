@@ -145,3 +145,14 @@ See [License.txt](./License.txt) for license
 # Video Demo
 Coming Soon
 
+## Notion Workspace & Documentation
+For a comprehensive guide, feature breakdowns, and planning docs, see the [Notion Workspace (PDF export)](HabitTrackerNotionDoc.pdf) included in the repository. This document covers design decisions, user flows, and detailed specs for SoloLeveller.
+
+### V2 Additions (Coming Soon)
+- [ ] **NPC Shopkeeper:** Implement interactive NPC logic for the in-app shop, including dialogue and dynamic responses.
+- [ ] **Baseline Theme:** Add a dedicated baseline color palette and theme option.
+- [ ] **Refactor Journal Module:** Modularize `journal.py` for improved maintainability and clarity.
+- [ ] **Shop Token Robustness:** Ensure all shop tokens function correctly, including handling edge cases and error states.
+- [ ] **Focus Timer:** Integrate a built-in Pomodoro timer; successful sessions automatically log a Mindful atone.
+- [ ] **Soundtrack Selector:** Allow users to choose and switch background music tracks within the app.
+
