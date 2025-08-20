@@ -33,6 +33,53 @@ SoloLeveller/
 - All persistent data is stored locally in `habit_tracker.db`.
 - Optional assets (music, images) are included in their respective folders.
 - See `requirements.txt` for dependencies.
+  
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;">
+<div style="text-align: center;">
+  <img src="screenshots/atone.png" alt="Atone Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">Atone</p>
+</div>
+<div style="text-align: center;">
+  <img src="screenshots/basline.png" alt="Baseline Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">Baseline</p>
+</div>
+<div style="text-align: center;">
+  <img src="screenshots/contracts.png" alt="Contracts Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">Contracts</p>
+</div>
+<div style="text-align: center;">
+  <img src="screenshots/logger.png" alt="Logger Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">Logger</p>
+</div>
+<div style="text-align: center;">
+  <img src="screenshots/mycontracts.png" alt="My Contracts Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">My Contracts</p>
+</div>
+<div style="text-align: center;">
+  <img src="screenshots/randomchallenge.png" alt="Random Challenge Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">Random Challenge</p>
+</div>
+<div style="text-align: center;">
+  <img src="screenshots/shop.png" alt="Shop Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">Shop</p>
+</div>
+<div style="text-align: center;">
+  <img src="screenshots/startingscreen.png" alt="Starting Screen Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">Starting Screen</p>
+</div>
+<div style="text-align: center;">
+  <img src="screenshots/theme1.png" alt="Theme 1 Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">Theme 1</p>
+</div>
+<div style="text-align: center;">
+  <img src="screenshots/theme2.png" alt="Theme 2 Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">Theme 2</p>
+</div>
+<div style="text-align: center;">
+  <img src="screenshots/theme3.png" alt="Theme 3 Screenshot" style="width: 100%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <p style="margin-top: 10px; font-weight: bold;">Theme 3</p>
+</div>
+</div>
 
 ## Current Feature Set (WIP)
 
@@ -60,6 +107,20 @@ SoloLeveller/
 - **Daily Double:** Each day, one atone and one sin category are highlighted. Logging actions in these categories will have double the effect (positive or negative) for that day.
 - **Integrity:** You can only log or edit entries for the current day, encouraging honest, real-time tracking.
 
+### Shop
+
+- **In-App Shop:** Earn in-game currency (e.g., "Mana Crystals") by logging positive habits, completing challenges, or leveling up.
+- **Boosts:** Purchase temporary XP multipliers, daily double rerolls, or bonus challenge slots.
+- **Token Categories:** The shop features 6 distinct token types, each represented by a unique color:
+    - **Boosts:** Temporary XP multipliers and power-ups.
+    - **Neglects:** Tokens related to missed actions or recovery from negative streaks.
+    - **Contracts & Offers:** Used for claiming, rerolling, or extending contracts and special offers.
+    - **Logger:** Enhances logging capabilities, such as quick-adds or undo options.
+    - **Random Challenge Helpers:** Tools to assist with daily/weekly challenges or unlock hints.
+    - **Economy & Conversion:** Currency exchange, bonus rewards, or converting tokens between types.
+- Each token category is visually distinct in the shop for easy identification.
+
+The shop is designed to reward consistency and engagement, offering fun ways to customize and enhance your habit-tracking journey.
 
 ### Contracts (Pacts)
 - My Contracts: your active, time-boxed commitments.
@@ -90,10 +151,7 @@ SoloLeveller/
 - SFX and background music with a mute toggle (state persists).
 - Baseline quiz on first run to establish starting stats.
 
-## Screenshots (Work in Progress)
-![Dashboard](screenshots/sc1.png)
-![Contracts](screenshots/sc2.png)
-![Theme & Stats](screenshots/sc3.png)
+
 
 ## Getting Started
 
@@ -121,4 +179,5 @@ rm habit_tracker.db
 See [License.txt](./License.txt) for licensing details.
 
 # Video Demo
-Link
+Coming Soon
+
